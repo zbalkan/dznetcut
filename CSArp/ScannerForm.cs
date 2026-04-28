@@ -454,7 +454,17 @@ namespace CSArp
 
             if (InvokeRequired)
             {
-                BeginInvoke(action);
+                try
+                {
+                    BeginInvoke(action);
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (InvalidOperationException)
+                {
+                }
+
                 return;
             }
 

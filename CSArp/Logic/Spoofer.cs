@@ -49,8 +49,14 @@ namespace CSArp.Logic
                 return;
             }
 
-            _spoofingCts = new CancellationTokenSource();
-            _activeTargetCount = targets.Count;
+            CancellationTokenSource spoofingCts;
+            lock (_sync)
+            {
+                _spoofingCts = new CancellationTokenSource();
+                _activeTargetCount = targets.Count;
+                spoofingCts = _spoofingCts;
+            }
+
             SpoofingStateChanged?.Invoke(true);
 
             if (!networkAdapter.Opened)
@@ -61,9 +67,12 @@ namespace CSArp.Logic
             if (networkAdapter.MacAddress == null)
             {
                 _log("Spoofing task skipped because adapter MAC address is unavailable.");
-                _spoofingCts.Dispose();
-                _spoofingCts = null;
-                _activeTargetCount = 0;
+                lock (_sync)
+                {
+                    _spoofingCts?.Dispose();
+                    _spoofingCts = null;
+                    _activeTargetCount = 0;
+                }
                 SpoofingStateChanged?.Invoke(false);
                 return;
             }
@@ -74,8 +83,8 @@ namespace CSArp.Logic
             foreach (var target in targets)
             {
                 var spoofTask = Task.Run(
-                    () => SendSpoofingPacket(target.Key, target.Value, gatewayIpAddress, gatewayMacAddress, networkAdapter, _spoofingCts.Token),
-                    _spoofingCts.Token);
+                    () => SendSpoofingPacket(target.Key, target.Value, gatewayIpAddress, gatewayMacAddress, networkAdapter, spoofingCts.Token),
+                    spoofingCts.Token);
                 tasks.Add(spoofTask);
             }
 

@@ -69,8 +69,8 @@ namespace CSArp.Logic
                 using var searcher = new ManagementObjectSearcher(
                     scope,
                     new ObjectQuery("SELECT InterfaceGuid, HardwareInterface FROM MSFT_NetAdapter WHERE InterfaceGuid IS NOT NULL"));
-
-                foreach (var adapter in searcher.Get().OfType<ManagementObject>())
+                using var adapters = searcher.Get();
+                foreach (var adapter in adapters.OfType<ManagementObject>())
                 {
                     var guid = adapter["InterfaceGuid"] as string;
                     if (string.IsNullOrWhiteSpace(guid) || map.ContainsKey(guid!))
@@ -99,8 +99,8 @@ namespace CSArp.Logic
             {
                 using var searcher = new ManagementObjectSearcher(
                     "SELECT GUID, PhysicalAdapter FROM Win32_NetworkAdapter WHERE GUID IS NOT NULL AND PhysicalAdapter IS NOT NULL");
-
-                foreach (var adapter in searcher.Get().OfType<ManagementObject>())
+                using var adapters = searcher.Get();
+                foreach (var adapter in adapters.OfType<ManagementObject>())
                 {
                     var guid = adapter["GUID"] as string;
                     if (string.IsNullOrWhiteSpace(guid) || map.ContainsKey(guid!))
@@ -129,8 +129,8 @@ namespace CSArp.Logic
             {
                 using var searcher = new ManagementObjectSearcher(
                     "SELECT GUID, PNPDeviceID FROM Win32_NetworkAdapter WHERE GUID IS NOT NULL AND PNPDeviceID IS NOT NULL");
-
-                foreach (var adapter in searcher.Get().OfType<ManagementObject>())
+                using var adapters = searcher.Get();
+                foreach (var adapter in adapters.OfType<ManagementObject>())
                 {
                     var guid = adapter["GUID"] as string;
                     var pnpDeviceId = adapter["PNPDeviceID"] as string;

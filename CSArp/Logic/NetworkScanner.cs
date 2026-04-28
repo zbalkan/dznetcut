@@ -633,7 +633,7 @@ namespace CSArp.Logic
                     return false;
                 }
 
-                var method = DiscoveryMethod.ArpPassive;
+                var method = DiscoveryMethod.PassiveIp;
                 string? hostnameHint = null;
 
                 var udpPacket = packet.Extract<UdpPacket>();

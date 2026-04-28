@@ -350,14 +350,15 @@ MigrationBackup/
 .ionide/
 
 # infer
+infer-out/
 */infer-out/
 .infersharpconfig
 
 # Launch settings
-launchsettings.json
+launchSettings.json
 
 # Installutil logs
 *.InstallLog
 
-.sarif
+*.sarif
 /.patch

@@ -10,6 +10,7 @@ namespace CSArp.Logic
     {
         ArpActive,
         ArpPassive,
+        PassiveIp,
         Icmp,
         TcpSyn,
         Mdns,

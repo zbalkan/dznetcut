@@ -115,6 +115,11 @@ namespace CSArp.Logic
                 score += 20;
             }
 
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.PassiveIp))
+            {
+                score += 15;
+            }
+
             if (host.DiscoveryMethods.Contains(DiscoveryMethod.Icmp))
             {
                 score += 25;
@@ -158,6 +163,10 @@ namespace CSArp.Logic
             if (host.DiscoveryMethods.SetEquals(new[] { DiscoveryMethod.ArpPassive }))
             {
                 host.Flags |= HostFlags.SilentHost;
+            }
+            else
+            {
+                host.Flags &= ~HostFlags.SilentHost;
             }
 
             return Math.Max(0, Math.Min(100, score));

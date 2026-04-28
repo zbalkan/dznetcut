@@ -11,19 +11,24 @@ namespace CSArp.Logic.Utilities
     {
         private const string MajorDelimiter = "--------------------------------------------------------------";
         private const char MinorDelimiter = '$';
-        private const string SettingsFile = "CSArp_settings.ini";
+        private const string SettingsFileName = "CSArp_settings.ini";
+        private const string SettingsDirectoryName = "CSArp";
         private const string ShowLogPrefix = "show_log=";
+        private static readonly string SettingsFilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            SettingsDirectoryName,
+            SettingsFileName);
 
         public static string GetSavedClientNameFromMAC(string clientMacAddress)
         {
-            if (string.IsNullOrWhiteSpace(clientMacAddress) || !File.Exists(SettingsFile))
+            if (string.IsNullOrWhiteSpace(clientMacAddress) || !File.Exists(SettingsFilePath))
             {
                 return string.Empty;
             }
 
             try
             {
-                var entries = GetMacToClientNameDictionary(File.ReadAllText(SettingsFile));
+                var entries = GetMacToClientNameDictionary(File.ReadAllText(SettingsFilePath));
                 return entries.TryGetValue(clientMacAddress, out var clientName) ? clientName : string.Empty;
             }
             catch (Exception ex)
@@ -41,8 +46,8 @@ namespace CSArp.Logic.Utilities
         {
             try
             {
-                var entries = File.Exists(SettingsFile)
-                    ? GetMacToClientNameDictionary(File.ReadAllText(SettingsFile))
+                var entries = File.Exists(SettingsFilePath)
+                    ? GetMacToClientNameDictionary(File.ReadAllText(SettingsFilePath))
                     : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (ListViewItem item in listView.Items)
@@ -55,7 +60,7 @@ namespace CSArp.Logic.Utilities
                     }
                 }
 
-                WriteToFile(interfaceFriendlyName, showLog, entries, SettingsFile);
+                WriteToFile(interfaceFriendlyName, showLog, entries, SettingsFilePath);
                 return true;
             }
             catch (Exception ex)
@@ -105,14 +110,14 @@ namespace CSArp.Logic.Utilities
 
         private static (string? InterfaceFriendlyName, bool? ShowLog) GetSettingsMetadata()
         {
-            if (!File.Exists(SettingsFile))
+            if (!File.Exists(SettingsFilePath))
             {
                 return (null, null);
             }
 
             try
             {
-                var lines = File.ReadAllLines(SettingsFile);
+                var lines = File.ReadAllLines(SettingsFilePath);
                 if (lines.Length == 0)
                 {
                     return (null, null);
@@ -140,6 +145,12 @@ namespace CSArp.Logic.Utilities
 
         private static void WriteToFile(string interfaceFriendlyName, bool showLog, Dictionary<string, string> entries, string fileName)
         {
+            var directoryPath = Path.GetDirectoryName(fileName);
+            if (!string.IsNullOrWhiteSpace(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+
             var content = new StringBuilder();
             content.AppendLine(interfaceFriendlyName ?? string.Empty);
             content.AppendLine($"{ShowLogPrefix}{showLog}");
