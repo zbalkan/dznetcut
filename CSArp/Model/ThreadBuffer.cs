@@ -37,7 +37,11 @@ namespace CSArp.Model
 
         public static void AddWithPrefix(Thread thread, string prefix)
         {
-            thread.Name = prefix + ":" + thread.Name;
+            if (thread.Name == null)
+            {
+                thread.Name = prefix + ":" + thread.ManagedThreadId;
+            }
+
             buffer.Add(thread);
             thread.Start();
         }
@@ -50,7 +54,7 @@ namespace CSArp.Model
 
         public static void StopThreadByName(string threadName)
         {
-            foreach (var t in buffer.Where(t => t.Name.Equals(threadName)))
+            foreach (var t in buffer.Where(t => t.Name != null && t.Name.Equals(threadName)))
             {
                 t.Abort();
             }
@@ -58,7 +62,7 @@ namespace CSArp.Model
 
         public static void StopThreadByPrefix(string prefix)
         {
-            foreach (var t in buffer.Where(t => t.Name.StartsWith(prefix)))
+            foreach (var t in buffer.Where(t => t.Name != null && t.Name.StartsWith(prefix)))
             {
                 t.Abort();
             }

@@ -87,15 +87,17 @@ namespace CSArp.Presenter
         {
             if (!string.IsNullOrEmpty(SelectedInterfaceFriendlyName)) //if a network interface has been selected
             {
-                if (_view.ToolStripStatusScan.Text.IndexOf("Scanning") == -1) //if a scan isn't active already
+                if (NetworkScanner.IsScanning)
                 {
-                    ArpSpoofer.StopAll(); // first disengage spoofing threads
-                    _ = _view.MainForm.BeginInvoke(new Action(() =>
-                    {
-                        _view.ToolStripStatus.Text = "Ready";
-                    }));
-                    NetworkScanner.StartScan(_view, selectedDevice, gatewayIpAddress);
+                    return;
                 }
+
+                ArpSpoofer.StopAll(); // first disengage spoofing threads
+                _ = _view.MainForm.BeginInvoke(new Action(() =>
+                {
+                    _view.ToolStripStatus.Text = "Ready";
+                }));
+                NetworkScanner.StartScan(_view, selectedDevice, gatewayIpAddress);
             }
             else
             {
@@ -106,6 +108,12 @@ namespace CSArp.Presenter
         public void StopNetworkScan()
         {
             NetworkScanner.StopScan();
+            StopCapture();
+        }
+
+        public bool IsNetworkScanActive()
+        {
+            return NetworkScanner.IsScanning;
         }
 
         /// <summary>

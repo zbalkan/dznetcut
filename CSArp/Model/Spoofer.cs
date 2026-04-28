@@ -16,11 +16,12 @@ namespace CSArp.Model
         public LibPcapLiveDevice NetworkAdapter { get; set; }
 
         private Dictionary<IPAddress, PhysicalAddress> engagedclientlist;
-        private bool disengageflag = true;
+        private volatile bool disengageflag = true;
 
         public void Start(Dictionary<IPAddress, PhysicalAddress> targetlist, IPAddress gatewayipaddress, PhysicalAddress gatewaymacaddress, LibPcapLiveDevice networkAdapter)
         {
             engagedclientlist = new Dictionary<IPAddress, PhysicalAddress>();
+            disengageflag = false;
             if (!networkAdapter.Opened)
             {
                 networkAdapter.Open();
@@ -49,7 +50,6 @@ namespace CSArp.Model
         private void SendSpoofingPacket(IPAddress ipAddress, PhysicalAddress physicalAddress, EthernetPacket ethernetpacketforgatewayrequest, LibPcapLiveDevice captureDevice)
         {
 
-            disengageflag = false;
             DebugOutput.Print("Spoofing target " + physicalAddress.ToString() + " @ " + ipAddress.ToString());
             try
             {

@@ -106,6 +106,12 @@ namespace CSArp.View
             }
             else
             {
+                if (_controller.IsNetworkScanActive())
+                {
+                    ToolStripStatus.Text = "A scan is already running.";
+                    return;
+                }
+
                 _controller.SelectedInterfaceFriendlyName = ToolStripComboBoxNetworkDeviceList.Text;
                 _controller.GetGatewayInformation();
                 _controller.StartCapture();

@@ -25,8 +25,8 @@ namespace CSArp.Model.Utilities
                 var datetimenow = DateTime.Now.ToString();
                 _ = _view.LogRichTextBox.Invoke(new Action(() =>
                   {
-                      _view.LogRichTextBox.Text += datetimenow + " : " + output + "\n";
-                      _view.LogRichTextBox.SelectionStart = _view.LogRichTextBox.Text.Length;
+                      _view.LogRichTextBox.AppendText(datetimenow + " : " + output + "\n");
+                      _view.LogRichTextBox.SelectionStart = _view.LogRichTextBox.TextLength;
                       _view.LogRichTextBox.ScrollToCaret();
                   }));
 

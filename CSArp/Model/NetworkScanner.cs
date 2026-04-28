@@ -26,7 +26,9 @@ namespace CSArp.Model
     {
 
         private const string prefix = "Scan";
-        private bool scanning = false;
+        private volatile bool scanning = false;
+
+        public bool IsScanning => scanning;
 
         /// <summary>
         /// Populates listview with machines connected to the LAN
@@ -39,7 +41,7 @@ namespace CSArp.Model
             #region initialization
             _ = view.MainForm.Invoke(new Action(() => view.ToolStripStatusScan.Text = "Please wait..."));
             _ = view.MainForm.Invoke(new Action(() => view.ToolStripProgressBarScan.Value = 0));
-            view.ClientListView.Items.Clear();
+            _ = view.ClientListView.Invoke(new Action(() => view.ClientListView.Items.Clear()));
             #endregion
 
             // Change state
