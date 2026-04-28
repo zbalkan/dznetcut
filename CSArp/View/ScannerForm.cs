@@ -21,6 +21,8 @@ namespace CSArp.View
         private IPAddress _gatewayIpAddress;
         private LibPcapLiveDevice _selectedDevice;
         private string _selectedInterfaceFriendlyName;
+        private IPAddress _sourceIpAddress;
+        private PhysicalAddress _sourceMacAddress;
 
         public ScannerForm()
         {
@@ -101,6 +103,9 @@ namespace CSArp.View
                 selectedDevice.Open(conf);
             }
 
+            _sourceIpAddress = selectedDevice.ReadCurrentIpV4Address();
+            _sourceMacAddress = selectedDevice.MacAddress;
+
             return true;
         }
 
@@ -151,13 +156,24 @@ namespace CSArp.View
 
             var targets = clientListView.SelectedItems
                 .OfType<ListViewItem>()
+                .Where(item => !IsProtectedTarget(item))
                 .ToDictionary(
                     item => IPAddress.Parse(item.SubItems[0].Text),
                     item => item.SubItems[1].Text.Parse());
 
+            if (targets.Count == 0)
+            {
+                _ = MessageBox.Show("You cannot spoof the source device or the gateway.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                toolStripStatus.Text = "Select a different target.";
+                return;
+            }
+
             foreach (ListViewItem item in clientListView.SelectedItems)
             {
-                item.SubItems[2].Text = "Off";
+                if (!IsProtectedTarget(item))
+                {
+                    item.SubItems[2].Text = "Off";
+                }
             }
 
             _arpSpoofer.Start(targets, _gatewayIpAddress, gatewayPhysicalAddress, _selectedDevice);
@@ -265,15 +281,57 @@ namespace CSArp.View
         {
             RunOnUiThread(() =>
             {
-                var name = isGateway ? "GATEWAY" : ApplicationSettings.GetSavedClientNameFromMAC(macAddress.ToString("-"));
+                var isSourceDevice = IsSourceClient(ipAddress, macAddress);
+                var name = isGateway
+                    ? "GATEWAY"
+                    : isSourceDevice
+                        ? "THIS DEVICE"
+                        : ApplicationSettings.GetSavedClientNameFromMAC(macAddress.ToString("-"));
                 _ = clientListView.Items.Add(new ListViewItem(new[]
                 {
                     ipAddress.ToString(),
                     macAddress.ToString("-"),
                     "On",
                     name
-                }));
+                })
+                {
+                    ToolTipText = isGateway
+                        ? "The gateway cannot be spoofed."
+                        : isSourceDevice
+                            ? "The source device cannot be spoofed."
+                            : string.Empty
+                });
             });
+        }
+
+        private bool IsSourceClient(ListViewItem item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            var ip = IPAddress.Parse(item.SubItems[0].Text);
+            var mac = item.SubItems[1].Text.Parse();
+            return IsSourceClient(ip, mac);
+        }
+
+        private bool IsSourceClient(IPAddress ipAddress, PhysicalAddress macAddress) =>
+            (_sourceIpAddress != null && _sourceIpAddress.Equals(ipAddress)) ||
+            (_sourceMacAddress != null && _sourceMacAddress.Equals(macAddress));
+
+        private bool IsGatewayClient(IPAddress ipAddress) =>
+            _gatewayIpAddress != null && _gatewayIpAddress.Equals(ipAddress);
+
+        private bool IsProtectedTarget(ListViewItem item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            var ip = IPAddress.Parse(item.SubItems[0].Text);
+            return IsGatewayClient(ip) || IsSourceClient(item);
         }
 
         private void RunOnUiThread(Action action)
@@ -297,6 +355,20 @@ namespace CSArp.View
         {
             StopNetworkScan();
             toolStripStatus.Text = "Scan stopped!";
+        }
+
+        private void clientListView_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
+        {
+            if (!e.IsSelected || !IsProtectedTarget(e.Item))
+            {
+                return;
+            }
+
+            e.Item.Selected = false;
+            var ip = IPAddress.Parse(e.Item.SubItems[0].Text);
+            toolStripStatus.Text = IsGatewayClient(ip)
+                ? "The gateway cannot be spoofed."
+                : "The source device cannot be spoofed.";
         }
     }
 }

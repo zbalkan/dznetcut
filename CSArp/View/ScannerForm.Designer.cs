@@ -328,6 +328,7 @@ namespace CSArp.View
             this.clientListView.TabIndex = 2;
             this.clientListView.UseCompatibleStateImageBehavior = false;
             this.clientListView.View = System.Windows.Forms.View.Details;
+            this.clientListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.clientListView_ItemSelectionChanged);
             // 
             // columnHeaderIP
             // 
@@ -448,4 +449,3 @@ namespace CSArp.View
         private ToolStripMenuItem stopNetworkScanToolStripMenuItem;
     }
 }
-

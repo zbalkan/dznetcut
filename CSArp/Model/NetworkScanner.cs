@@ -135,6 +135,7 @@ namespace CSArp.Model
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
+                    DebugOutput.Print("Discovery task finished. " + _arpTable.Count + " device(s) discovered.");
                     StatusChanged?.Invoke(this, $"{_arpTable.Count} device(s) found");
                     ProgressChanged?.Invoke(this, 100);
                     StartBackgroundScan(networkAdapter, gatewayIp, cancellationToken);

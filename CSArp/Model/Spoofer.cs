@@ -14,6 +14,7 @@ namespace CSArp.Model
     public class Spoofer
     {
         private CancellationTokenSource _spoofingCts;
+        private int _activeTargetCount;
 
         public void Start(
             IReadOnlyDictionary<IPAddress, PhysicalAddress> targets,
@@ -22,12 +23,22 @@ namespace CSArp.Model
             LibPcapLiveDevice networkAdapter)
         {
             StopAll();
+
+            if (targets == null || targets.Count == 0)
+            {
+                DebugOutput.Print("Spoofing task skipped because there are no targets.");
+                return;
+            }
+
             _spoofingCts = new CancellationTokenSource();
+            _activeTargetCount = targets.Count;
 
             if (!networkAdapter.Opened)
             {
                 networkAdapter.Open();
             }
+
+            DebugOutput.Print("Spoofing task started for " + _activeTargetCount + " target(s).");
 
             foreach (var target in targets)
             {
@@ -49,7 +60,17 @@ namespace CSArp.Model
             }
         }
 
-        public void StopAll() => _spoofingCts?.Cancel();
+        public void StopAll()
+        {
+            if (_spoofingCts == null || _spoofingCts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _spoofingCts.Cancel();
+            DebugOutput.Print("Spoofing task stopped for " + _activeTargetCount + " target(s).");
+            _activeTargetCount = 0;
+        }
 
         private static async Task SendSpoofingPacket(
             IPAddress ipAddress,
