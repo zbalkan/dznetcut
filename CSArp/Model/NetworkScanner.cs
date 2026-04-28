@@ -174,27 +174,25 @@ namespace CSArp.Model
                 // Obtain current IP address
                 var sourceAddress = networkAdapter.ReadCurrentIpV4Address();
 
-                var addressList = new List<IPAddress> {
-                                gatewayIp
-                            }; // Ensure the ARP request is sent to gateway first, even if it means sending twice
-                addressList.AddRange(subnet.ToList());
+                // Add local host statically.
+                ArpTable.Instance.Add(sourceAddress, networkAdapter.MacAddress);
+                _ = view.ClientListView.Items.Add(new ListViewItem(new string[] { sourceAddress.ToString(), networkAdapter.MacAddress.ToString("-"), "On", ApplicationSettings.GetSavedClientNameFromMAC(networkAdapter.MacAddress.ToString("-")) }));
 
-                // Remove current address from the list and add to ARP table statically
-                _ = addressList.Remove(networkAdapter.ReadCurrentIpV4Address());
-                ArpTable.Instance.Add(networkAdapter.ReadCurrentIpV4Address(), networkAdapter.MacAddress);
-                _ = view.ClientListView.Items.Add(new ListViewItem(new string[] { networkAdapter.ReadCurrentIpV4Address().ToString(), networkAdapter.MacAddress.ToString("-"), "On", ApplicationSettings.GetSavedClientNameFromMAC(networkAdapter.MacAddress.ToString("-")) }));
-
-                // Start
-                foreach (var targetIpAddress in addressList)
+                // Ensure the ARP request is sent to gateway first.
+                if (!sourceAddress.Equals(gatewayIp) && scanning)
                 {
-                    if (scanning)
+                    SendArpRequest(networkAdapter, gatewayIp);
+                }
+
+                // Send requests sequentially in this worker thread.
+                // Avoid materializing the full subnet as a list to prevent out-of-memory on larger networks.
+                foreach (var targetIpAddress in subnet.ToList())
+                {
+                    if (!scanning || sourceAddress.Equals(targetIpAddress) || gatewayIp.Equals(targetIpAddress))
                     {
-                        ThreadBuffer.AddWithPrefix(new Thread(() =>
-                        {
-                            SendArpRequest(networkAdapter, targetIpAddress);
-                        }),
-                        prefix);
+                        continue;
                     }
+                    SendArpRequest(networkAdapter, targetIpAddress);
                 }
             }
             catch (PcapException ex)
