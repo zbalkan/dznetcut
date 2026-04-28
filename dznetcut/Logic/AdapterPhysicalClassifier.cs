@@ -4,7 +4,7 @@ using System.Linq;
 using System.Management;
 using System.Net.NetworkInformation;
 
-namespace CSArp.Logic
+namespace dznetcut.Logic
 {
     internal static class AdapterPhysicalClassifier
     {

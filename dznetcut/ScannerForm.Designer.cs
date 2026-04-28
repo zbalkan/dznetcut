@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 
-namespace CSArp
+namespace dznetcut
 {
     partial class ScannerForm
     {
@@ -51,7 +51,7 @@ namespace CSArp
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripMenuItemRefreshClients = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.aboutCSArpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.aboutdznetcutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatus = new System.Windows.Forms.ToolStripStatusLabel();
             this.toolStripStatusLabelSpringer = new System.Windows.Forms.ToolStripStatusLabel();
@@ -213,17 +213,17 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.aboutCSArpToolStripMenuItem});
+            this.aboutdznetcutToolStripMenuItem});
             this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
             this.helpToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
             this.helpToolStripMenuItem.Text = "Help";
             // 
-            // aboutCSArpToolStripMenuItem
+            // aboutdznetcutToolStripMenuItem
             // 
-            this.aboutCSArpToolStripMenuItem.Name = "aboutCSArpToolStripMenuItem";
-            this.aboutCSArpToolStripMenuItem.Size = new System.Drawing.Size(143, 22);
-            this.aboutCSArpToolStripMenuItem.Text = "About CSArp";
-            this.aboutCSArpToolStripMenuItem.Click += new System.EventHandler(this.aboutCSArpToolStripMenuItem_Click);
+            this.aboutdznetcutToolStripMenuItem.Name = "aboutdznetcutToolStripMenuItem";
+            this.aboutdznetcutToolStripMenuItem.Size = new System.Drawing.Size(143, 22);
+            this.aboutdznetcutToolStripMenuItem.Text = "About dznetcut";
+            this.aboutdznetcutToolStripMenuItem.Click += new System.EventHandler(this.aboutdznetcutToolStripMenuItem_Click);
             // 
             // statusStrip1
             // 
@@ -344,7 +344,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             //
             // notifyIcon1
             // 
-            this.notifyIcon1.Text = "CSArp";
+            this.notifyIcon1.Text = "dznetcut";
             this.notifyIcon1.Visible = true;
             this.notifyIcon1.MouseClick += new System.Windows.Forms.MouseEventHandler(this.notifyIcon1_OnMouseClick);
             // 
@@ -382,7 +382,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "ScannerForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "CSArp";
+            this.Text = "dznetcut";
             this.Load += new System.EventHandler(this.Form1_Load);
             this.Resize += new System.EventHandler(this.Form1_Resize);
             this.menuStrip1.ResumeLayout(false);
@@ -400,7 +400,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem aboutCSArpToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem aboutdznetcutToolStripMenuItem;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatus;
         private System.Windows.Forms.ListView clientListView;

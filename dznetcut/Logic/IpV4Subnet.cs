@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 
-namespace CSArp.Logic
+namespace dznetcut.Logic
 {
     internal sealed class IPV4Subnet
     {

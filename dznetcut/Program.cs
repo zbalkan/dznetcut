@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 
-namespace CSArp
+namespace dznetcut
 {
     internal static class Program
     {

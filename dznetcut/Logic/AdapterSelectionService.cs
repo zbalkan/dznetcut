@@ -4,7 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 
-namespace CSArp.Logic
+namespace dznetcut.Logic
 {
     internal static class AdapterSelectionService
     {

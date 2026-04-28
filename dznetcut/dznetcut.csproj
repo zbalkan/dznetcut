@@ -21,7 +21,7 @@
     
     <Guid>8fb487c8-306d-4476-8c6b-4d3ddf1853a4</Guid>
 
-    <StartupObject>CSArp.Program</StartupObject>
+    <StartupObject>dznetcut.Program</StartupObject>
     <ApplicationIcon>icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Deterministic>true</Deterministic>
@@ -35,7 +35,7 @@
 
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-      <_Parameter1>CSArp.Tests</_Parameter1>
+      <_Parameter1>dznetcut.Tests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
 

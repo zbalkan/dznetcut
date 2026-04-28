@@ -5,7 +5,7 @@ using System.Net;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
-namespace CSArp.Logic
+namespace dznetcut.Logic
 {
     public static class LibPcapDeviceExtensions
     {

@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Net.NetworkInformation;
 
-namespace CSArp.Logic
+namespace dznetcut.Logic
 {
     public static class PhysicalAddressExtensions
     {

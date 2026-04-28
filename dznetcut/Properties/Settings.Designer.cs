@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace CSArp.Properties {
+namespace dznetcut.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]

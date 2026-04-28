@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26228.4
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSArp", "CSArp\CSArp.csproj", "{8FB487C8-306D-4476-8C6B-4D3DDF1853A4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dznetcut", "dznetcut\dznetcut.csproj", "{8FB487C8-306D-4476-8C6B-4D3DDF1853A4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSArp.Tests", "CSArp.Tests\CSArp.Tests.csproj", "{E50BB78C-ED40-4B50-B654-598877C2EAE9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dznetcut.Tests", "dznetcut.Tests\dznetcut.Tests.csproj", "{E50BB78C-ED40-4B50-B654-598877C2EAE9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

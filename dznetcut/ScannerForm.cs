@@ -8,12 +8,12 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
-using CSArp.Logic;
-using CSArp.Logic.Utilities;
+using dznetcut.Logic;
+using dznetcut.Logic.Utilities;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
-namespace CSArp
+namespace dznetcut
 {
     public partial class ScannerForm : Form
     {
@@ -113,7 +113,7 @@ namespace CSArp
             }
         }
 
-        private void aboutCSArpToolStripMenuItem_Click(object sender, EventArgs e)
+        private void aboutdznetcutToolStripMenuItem_Click(object sender, EventArgs e)
         {
             const string aboutText =
                 "dznetcut v2.0.0\n" +
@@ -121,7 +121,7 @@ namespace CSArp
                 "Licensed under GNU GPL v3.0\n" +
                 "Copyright (c) 2024-2026 Zafer Balkan\n\n" +
                 "Includes components from dzmac (GPLv3).\n" +
-                "Derived from csarp-netcut (MIT License).\n\n" +
+                "Derived from dznetcut-netcut (MIT License).\n\n" +
                 "Upstream Hash: 6952d98\n" +
                 "DeltaZulu Hash: cbaba0b\n\n" +
                 "Source: github.com/DeltaZulu-OU/dznetcut";
@@ -500,7 +500,7 @@ namespace CSArp
         {
             saveFileDialog1.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
             saveFileDialog1.InitialDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            saveFileDialog1.FileName = "CSArp-log";
+            saveFileDialog1.FileName = "dznetcut-log";
 
             if (saveFileDialog1.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(saveFileDialog1.FileName))
             {

@@ -12,7 +12,7 @@ using PacketDotNet;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
-namespace CSArp.Logic
+namespace dznetcut.Logic
 {
     public sealed class ClientDiscoveredEventArgs
     {

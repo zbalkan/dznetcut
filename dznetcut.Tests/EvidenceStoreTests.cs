@@ -2,10 +2,10 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
-using CSArp.Logic;
+using dznetcut.Logic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace CSArp.Tests
+namespace dznetcut.Tests
 {
     [TestClass]
     public class EvidenceStoreTests

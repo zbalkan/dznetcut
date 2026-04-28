@@ -13,6 +13,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CSArp\CSArp.csproj" />
+    <ProjectReference Include="..\dznetcut\dznetcut.csproj" />
   </ItemGroup>
 </Project>

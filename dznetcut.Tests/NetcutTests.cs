@@ -2,10 +2,10 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
-using CSArp.Logic;
+using dznetcut.Logic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace CSArp.Tests
+namespace dznetcut.Tests
 {
     [TestClass]
     public class NetcutTests
@@ -74,7 +74,7 @@ namespace CSArp.Tests
         public void TestInitialize()
         {
             _originalDirectory = Environment.CurrentDirectory;
-            _tempDirectory = Path.Combine(Path.GetTempPath(), "csarp-tests", Guid.NewGuid().ToString("N"));
+            _tempDirectory = Path.Combine(Path.GetTempPath(), "dznetcut-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempDirectory);
             Environment.CurrentDirectory = _tempDirectory;
         }
