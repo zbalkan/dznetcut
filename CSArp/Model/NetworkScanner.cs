@@ -53,6 +53,7 @@ namespace CSArp.Model
             if (_backgroundAdapter != null && _backgroundHandler != null)
             {
                 _backgroundAdapter.OnPacketArrival -= _backgroundHandler;
+                _backgroundHandler = null;
             }
         }
 
@@ -133,15 +134,10 @@ namespace CSArp.Model
             try
             {
                 _backgroundAdapter = networkAdapter;
+                var subnet = networkAdapter.ReadCurrentSubnet();
                 _backgroundHandler = (sender, e) =>
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        return;
-                    }
-
-                    var subnet = networkAdapter.ReadCurrentSubnet();
-                    if (!TryExtractArpPacket(e, out var arpPacket))
+                    if (cancellationToken.IsCancellationRequested || !TryExtractArpPacket(e, out var arpPacket))
                     {
                         return;
                     }
@@ -207,7 +203,7 @@ namespace CSArp.Model
             Action<IPAddress, PhysicalAddress, bool> onClientFound,
             Action<string> onStatusChanged)
         {
-            if (arpPacket.SenderProtocolAddress.ToString() == "0.0.0.0" || !subnet.Contains(arpPacket.SenderProtocolAddress))
+            if (IPAddress.Any.Equals(arpPacket.SenderProtocolAddress) || !subnet.Contains(arpPacket.SenderProtocolAddress))
             {
                 return;
             }

