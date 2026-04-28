@@ -176,7 +176,17 @@ namespace CSArp.Model
 
                 // Add local host statically.
                 ArpTable.Instance.Add(sourceAddress, networkAdapter.MacAddress);
-                _ = view.ClientListView.Items.Add(new ListViewItem(new string[] { sourceAddress.ToString(), networkAdapter.MacAddress.ToString("-"), "On", ApplicationSettings.GetSavedClientNameFromMAC(networkAdapter.MacAddress.ToString("-")) }));
+                _ = view.ClientListView.Invoke(new Action(() =>
+                {
+                    _ = view.ClientListView.Items.Add(
+                        new ListViewItem(new string[]
+                        {
+                            networkAdapter.ReadCurrentIpV4Address().ToString(),
+                            networkAdapter.MacAddress.ToString("-"),
+                            "On",
+                            ApplicationSettings.GetSavedClientNameFromMAC(networkAdapter.MacAddress.ToString("-"))
+                        }));
+                }));
 
                 // Ensure the ARP request is sent to gateway first.
                 if (!sourceAddress.Equals(gatewayIp) && scanning)
