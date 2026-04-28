@@ -49,10 +49,8 @@ namespace CSArp.Model
             lastAddressAsUint = ConvertToUint(Last);
         }
 
-        public int Count
-        {
-            get
-            {
+        public int Count {
+            get {
                 return (int)(lastAddressAsUint - firstAddressAsUint + 1);
             }
         }
@@ -70,7 +68,6 @@ namespace CSArp.Model
             {
                 var address = ConvertToIPv4Address(adr);
                 list.Add(address);
-
             }
 
             return list;

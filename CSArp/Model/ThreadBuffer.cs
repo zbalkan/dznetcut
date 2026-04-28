@@ -1,23 +1,19 @@
 ﻿using System.Collections.Generic;
-using System.Threading;
 using System.Linq;
+using System.Threading;
 
 namespace CSArp.Model
 {
     public static class ThreadBuffer
     {
-        public static int Count
-        {
-            get
-            {
+        public static int Count {
+            get {
                 return buffer.Count;
             }
         }
 
-        public static int AliveCount
-        {
-            get
-            {
+        public static int AliveCount {
+            get {
                 return buffer.Count(t => t.IsAlive);
             }
         }

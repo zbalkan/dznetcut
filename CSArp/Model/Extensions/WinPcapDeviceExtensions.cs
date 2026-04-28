@@ -1,9 +1,8 @@
-﻿using System.Linq;
-using SharpPcap.LibPcap;
+﻿using System;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
-using CSArp.Model;
-using System;
+using SharpPcap.LibPcap;
 
 namespace CSArp.Model.Extensions
 {

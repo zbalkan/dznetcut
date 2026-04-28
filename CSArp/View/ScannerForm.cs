@@ -2,12 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Reflection;
 using System.Windows.Forms;
 using CSArp.Model;
-using CSArp.Model.Extensions;
 using CSArp.Model.Utilities;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -37,14 +36,11 @@ namespace CSArp.View
         public ToolStripStatusLabel ToolStripStatusScan => toolStripStatusScan;
         public ToolStripProgressBar ToolStripProgressBarScan => toolStripProgressBarScan;
 
-        private string SelectedInterfaceFriendlyName
-        {
-            get
-            {
+        private string SelectedInterfaceFriendlyName {
+            get {
                 return selectedInterfaceFriendlyName;
             }
-            set
-            {
+            set {
                 if (string.IsNullOrEmpty(value))
                 {
                     throw new ArgumentNullException(nameof(value));
@@ -121,8 +117,7 @@ namespace CSArp.View
             foreach (ListViewItem listitem in clientListView.SelectedItems)
             {
                 targetlist.Add(IPAddress.Parse(listitem.SubItems[0].Text), listitem.SubItems[1].Text.Parse());
-                _ = BeginInvoke(new Action(() =>
-                {
+                _ = BeginInvoke(new Action(() => {
                     clientListView.SelectedItems[parseindex++].SubItems[2].Text = "Off";
                 }));
             }
@@ -176,6 +171,7 @@ namespace CSArp.View
         }
 
         #region Event based methods
+
         private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrEmpty(toolStripComboBoxDevicelist.Text))
@@ -280,13 +276,15 @@ namespace CSArp.View
         {
             richTextBoxLog.Text = "";
         }
+
         private void notifyIcon1_OnMouseClick(object sender, EventArgs e)
         {
             notifyIcon1.Visible = false;
             Show();
             WindowState = FormWindowState.Normal;
         }
-        #endregion
+
+        #endregion Event based methods
 
         #region Private Methods
 
@@ -312,8 +310,7 @@ namespace CSArp.View
             saveFileDialog1.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
             saveFileDialog1.InitialDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             saveFileDialog1.FileName = "CSArp-log";
-            saveFileDialog1.FileOk += (object sender, System.ComponentModel.CancelEventArgs e) =>
-            {
+            saveFileDialog1.FileOk += (object sender, System.ComponentModel.CancelEventArgs e) => {
                 if (saveFileDialog1.FileName != "" && !File.Exists(saveFileDialog1.FileName))
                 {
                     try
@@ -329,6 +326,7 @@ namespace CSArp.View
             };
             _ = saveFileDialog1.ShowDialog();
         }
+
         private static string[] EnumerateNetworkAdapters()
         {
             return NetworkAdapterManager.WinPcapDevices.Where(device => !string.IsNullOrEmpty(device.Interface.FriendlyName))
@@ -341,7 +339,8 @@ namespace CSArp.View
             ThreadBuffer.Clear();
             StopCapture();
         }
-        #endregion
+
+        #endregion Private Methods
 
         private void stopNetworkScanToolStripMenuItem_Click(object sender, EventArgs e)
         {

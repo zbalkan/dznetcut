@@ -23,12 +23,11 @@ namespace CSArp.Model.Utilities
             try
             {
                 var datetimenow = DateTime.Now.ToString();
-                _ = _logTextBox.Invoke(new Action(() =>
-                  {
-                      _logTextBox.AppendText(datetimenow + " : " + output + "\n");
-                      _logTextBox.SelectionStart = _logTextBox.TextLength;
-                      _logTextBox.ScrollToCaret();
-                  }));
+                _ = _logTextBox.Invoke(new Action(() => {
+                    _logTextBox.AppendText(datetimenow + " : " + output + "\n");
+                    _logTextBox.SelectionStart = _logTextBox.TextLength;
+                    _logTextBox.ScrollToCaret();
+                }));
 
                 Debug.Print(output);
             }

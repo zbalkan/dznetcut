@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Net;
-using SharpPcap;
-using PacketDotNet;
 using System.Net.NetworkInformation;
 using System.Threading;
-using SharpPcap.LibPcap;
-using CSArp.Model.Utilities;
 using CSArp.Model.Extensions;
+using CSArp.Model.Utilities;
+using PacketDotNet;
+using SharpPcap;
+using SharpPcap.LibPcap;
 
 namespace CSArp.Model
 {
@@ -39,6 +39,7 @@ namespace CSArp.Model
             }
             ;
         }
+
         public void StopAll()
         {
             disengageflag = true;
@@ -47,9 +48,9 @@ namespace CSArp.Model
                 engagedclientlist.Clear();
             }
         }
+
         private void SendSpoofingPacket(IPAddress ipAddress, PhysicalAddress physicalAddress, EthernetPacket ethernetpacketforgatewayrequest, LibPcapLiveDevice captureDevice)
         {
-
             DebugOutput.Print("Spoofing target " + physicalAddress.ToString() + " @ " + ipAddress.ToString());
             try
             {

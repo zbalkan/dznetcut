@@ -1,16 +1,14 @@
 ﻿using System;
-using System.Net.NetworkInformation;
-using System.Net;
 using System.Collections.Concurrent;
+using System.Net;
+using System.Net.NetworkInformation;
 
 namespace CSArp.Model
 {
     public sealed class ArpTable
     {
-        public static ArpTable Instance
-        {
-            get
-            {
+        public static ArpTable Instance {
+            get {
                 return lazy.Value;
             }
         }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -8,10 +7,8 @@ namespace CSArp.Model
 {
     public static class NetworkAdapterManager
     {
-        public static CaptureDeviceList NetworkAdapters
-        {
-            get
-            {
+        public static CaptureDeviceList NetworkAdapters {
+            get {
                 if (_networkAdapters == null)
                 {
                     _networkAdapters = CaptureDeviceList.Instance;
@@ -23,10 +20,8 @@ namespace CSArp.Model
 
         private static CaptureDeviceList _networkAdapters;
 
-        public static IReadOnlyList<LibPcapLiveDevice> WinPcapDevices
-        {
-            get
-            {
+        public static IReadOnlyList<LibPcapLiveDevice> WinPcapDevices {
+            get {
                 return NetworkAdapters
                     .Where(adapter => adapter is LibPcapLiveDevice)
                     .Select(adapter => adapter as LibPcapLiveDevice)

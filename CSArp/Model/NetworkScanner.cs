@@ -1,16 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Net.NetworkInformation;
-using SharpPcap;
-using SharpPcap.LibPcap;
-using PacketDotNet;
 using System.Diagnostics;
+using System.Net;
 using System.Threading;
 using System.Windows.Forms;
-using CSArp.View;
-using CSArp.Model.Utilities;
 using CSArp.Model.Extensions;
+using CSArp.Model.Utilities;
+using CSArp.View;
+using PacketDotNet;
+using SharpPcap;
+using SharpPcap.LibPcap;
 
 /*
  Reference:
@@ -24,7 +22,6 @@ namespace CSArp.Model
     // TODO: Remove GUI related code out of the class.
     public class NetworkScanner
     {
-
         private const string prefix = "Scan";
         private volatile bool scanning = false;
 
@@ -38,11 +35,14 @@ namespace CSArp.Model
         public void StartScan(ScannerForm form, LibPcapLiveDevice networkAdapter, IPAddress gatewayIp)
         {
             DebugOutput.Print("Refresh client list");
+
             #region initialization
+
             _ = form.Invoke(new Action(() => form.ToolStripStatusScan.Text = "Please wait..."));
             _ = form.Invoke(new Action(() => form.ToolStripProgressBarScan.Value = 0));
             _ = form.ClientListView.Invoke(new Action(() => form.ClientListView.Items.Clear()));
-            #endregion
+
+            #endregion initialization
 
             // Change state
             scanning = true;
@@ -63,18 +63,20 @@ namespace CSArp.Model
             var sourceAddress = networkAdapter.ReadCurrentIpV4Address();
 
             // TODO: Send and capture ICMP packages for both MAC address and alive status.
+
             #region Sending ARP requests to probe for all possible IP addresses on LAN
-            ThreadBuffer.AddWithPrefix(new Thread(() =>
-            {
+
+            ThreadBuffer.AddWithPrefix(new Thread(() => {
                 InitiateArpRequestQueue(form, networkAdapter, gatewayIp);
             }),
             prefix);
-            #endregion
+
+            #endregion Sending ARP requests to probe for all possible IP addresses on LAN
 
             #region Retrieving ARP packets floating around and finding out the senders' IP and MACs
+
             networkAdapter.Filter = "arp";
-            ThreadBuffer.AddWithPrefix(new Thread(() =>
-            {
+            ThreadBuffer.AddWithPrefix(new Thread(() => {
                 try
                 {
                     var stopwatch = new Stopwatch();
@@ -96,8 +98,7 @@ namespace CSArp.Model
                             }
                             DebugOutput.Print("Added " + arppacket.SenderProtocolAddress.ToString() + " @ " + arppacket.SenderHardwareAddress.ToString("-"));
                             ArpTable.Instance.Add(arppacket.SenderProtocolAddress, arppacket.SenderHardwareAddress);
-                            _ = form.ClientListView.Invoke(new Action(() =>
-                            {
+                            _ = form.ClientListView.Invoke(new Action(() => {
                                 _ = isGateway
                                 ? form.ClientListView.Items.Add(new ListViewItem(new string[] { arppacket.SenderProtocolAddress.ToString(), arppacket.SenderHardwareAddress.ToString("-"), "On", "GATEWAY" }))
                                 : form.ClientListView.Items.Add(new ListViewItem(new string[] { arppacket.SenderProtocolAddress.ToString(), arppacket.SenderHardwareAddress.ToString("-"), "On", ApplicationSettings.GetSavedClientNameFromMAC(arppacket.SenderHardwareAddress.ToString("-")) }));
@@ -124,10 +125,10 @@ namespace CSArp.Model
                 {
                     DebugOutput.Print(ex.Message);
                 }
-
             }),
             prefix);
-            #endregion
+
+            #endregion Retrieving ARP packets floating around and finding out the senders' IP and MACs
         }
 
         /// <summary>
@@ -138,19 +139,22 @@ namespace CSArp.Model
             try
             {
                 #region Sending ARP requests to probe for all possible IP addresses on LAN
-                ThreadBuffer.AddWithPrefix(new Thread(() =>
-                {
+
+                ThreadBuffer.AddWithPrefix(new Thread(() => {
                     InitiateArpRequestQueue(form, networkAdapter, gatewayIp);
                 }),
                 prefix);
-                #endregion
+
+                #endregion Sending ARP requests to probe for all possible IP addresses on LAN
 
                 #region Assign OnPacketArrival event handler and start capturing
-                networkAdapter.OnPacketArrival += (sender, e) =>
-                {
+
+                networkAdapter.OnPacketArrival += (sender, e) => {
                     ParseArpResponse(form, networkAdapter.ReadCurrentSubnet(), gatewayIp, e);
                 };
-                #endregion
+
+                #endregion Assign OnPacketArrival event handler and start capturing
+
                 networkAdapter.StartCapture();
             }
             catch (Exception ex)
@@ -178,8 +182,7 @@ namespace CSArp.Model
 
                 // Add local host statically.
                 ArpTable.Instance.Add(sourceAddress, networkAdapter.MacAddress);
-                _ = form.ClientListView.Invoke(new Action(() =>
-                {
+                _ = form.ClientListView.Invoke(new Action(() => {
                     _ = form.ClientListView.Items.Add(
                         new ListViewItem(new string[]
                         {
@@ -247,8 +250,7 @@ namespace CSArp.Model
                 }
                 DebugOutput.Print("Added " + arppacket.SenderProtocolAddress.ToString() + " @ " + arppacket.SenderHardwareAddress.ToString("-") + " from background scan!");
                 ArpTable.Instance.Add(arppacket.SenderProtocolAddress, arppacket.SenderHardwareAddress);
-                _ = form.ClientListView.Invoke(new Action(() =>
-                {
+                _ = form.ClientListView.Invoke(new Action(() => {
                     _ = isGateway
                         ? form.ClientListView.Items.Add(new ListViewItem(new string[] { arppacket.SenderProtocolAddress.ToString(), arppacket.SenderHardwareAddress.ToString("-"), "On", "GATEWAY" }))
                         : form.ClientListView.Items.Add(new ListViewItem(new string[] { arppacket.SenderProtocolAddress.ToString(), arppacket.SenderHardwareAddress.ToString("-"), "On", ApplicationSettings.GetSavedClientNameFromMAC(arppacket.SenderHardwareAddress.ToString("-")) }));

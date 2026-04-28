@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
-using System.Diagnostics;
 
 namespace CSArp.View
 {
@@ -41,14 +41,12 @@ namespace CSArp.View
                         retval = (from entry in mactoclientnamedictionary where entry.Key == clientMACaddress select entry.Value).ToList()[0];
                     }
                 }
-
             }
             catch (Exception ex)
             {
                 Debug.Print("Exception in ApplicationSettingsClass.GetSavedClientNameFromMAC\n" + ex.Message);
             }
             return retval;
-
         }
 
         /// <summary>
@@ -57,7 +55,6 @@ namespace CSArp.View
         /// <returns> Returns the name of the saved network adapter name, or null. </returns>
         public static string GetSavedPreferredInterfaceFriendlyName()
         {
-
             try
             {
                 if (File.Exists("CSArp_settings.ini"))
@@ -84,6 +81,7 @@ namespace CSArp.View
             try
             {
                 #region Populate listviewdictionary with entries from listview
+
                 var listviewdictionary = new Dictionary<string, string>();
                 foreach (ListViewItem listviewitem in listview.Items)
                 {
@@ -97,7 +95,8 @@ namespace CSArp.View
                         }
                     }
                 }
-                #endregion
+
+                #endregion Populate listviewdictionary with entries from listview
 
                 try
                 {
@@ -105,7 +104,9 @@ namespace CSArp.View
                     {
                         var filecontentstring = File.ReadAllText("CSArp_settings.ini");
                         var olddictionary = GetMACtoClientNameDictionary(filecontentstring);
+
                         #region Update olddictionary with entries from listviewdictionary
+
                         foreach (var entry in listviewdictionary)
                         {
                             var macaddress = entry.Key;
@@ -123,7 +124,9 @@ namespace CSArp.View
                                 }
                             }
                         }
-                        #endregion
+
+                        #endregion Update olddictionary with entries from listviewdictionary
+
                         WriteToFile(interfacefriendlyname, olddictionary, "CSArp_settings.ini.new");
                         File.Delete("CSArp_settings.ini");
                         File.Move("CSArp_settings.ini.new", "CSArp_settings.ini");
@@ -138,7 +141,6 @@ namespace CSArp.View
                 {
                     Debug.Print("Inner Exception at ApplicationSettingsClass.SaveSettings()\n" + ex.Message);
                 }
-
             }
             catch (Exception ex)
             {
@@ -148,6 +150,7 @@ namespace CSArp.View
         }
 
         #region Private methods
+
         private static void WriteToFile(string interfacefriendlyname, Dictionary<string, string> macaddressclientnamedictionary, string filename)
         {
             var towrite = interfacefriendlyname + "\n" + majorDelim;
@@ -192,7 +195,7 @@ namespace CSArp.View
 
             return retval;
         }
-        #endregion
 
+        #endregion Private methods
     }
 }
