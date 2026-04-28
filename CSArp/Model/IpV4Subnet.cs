@@ -1,85 +1,183 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 
 namespace CSArp.Model
 {
-    public class IPV4Subnet
+    public sealed class IPV4Subnet
     {
         public IPAddress First { get; private set; }
         public IPAddress Last { get; private set; }
         public IPAddress NetworkAddress { get; private set; }
         public IPAddress BroadcastAddress { get; private set; }
 
+        private readonly uint networkAddressAsUint;
+        private readonly uint broadcastAddressAsUint;
         private readonly uint firstAddressAsUint;
         private readonly uint lastAddressAsUint;
 
         public IPV4Subnet(IPAddress currentAddress, IPAddress subnetMask)
         {
-            // Convert the IP address to bytes.
-            var ipBytes = currentAddress.GetAddressBytes();
-
-            // Get bytes from subnet mask
-            var maskBytes = subnetMask.GetAddressBytes();
-
-            var firstIpAddressAsByte = new byte[ipBytes.Length];
-            var lastIpAddressAsByte = new byte[ipBytes.Length];
-
-            // Calculate the bytes of the start and end IP addresses.
-            for (var i = 0; i < ipBytes.Length; i++)
+            if (currentAddress == null)
             {
-                firstIpAddressAsByte[i] = (byte)(ipBytes[i] & maskBytes[i]);
-                lastIpAddressAsByte[i] = (byte)(ipBytes[i] | ~maskBytes[i]);
+                throw new ArgumentNullException(nameof(currentAddress));
             }
 
-            // Set network address and broadcast address
-            NetworkAddress = new IPAddress(firstIpAddressAsByte);
-            BroadcastAddress = new IPAddress(lastIpAddressAsByte);
+            if (subnetMask == null)
+            {
+                throw new ArgumentNullException(nameof(subnetMask));
+            }
 
-            // Exclude network address and broadcast address
-            firstIpAddressAsByte[3] += 1;
-            lastIpAddressAsByte[3] -= 1;
+            if (currentAddress.AddressFamily != AddressFamily.InterNetwork)
+            {
+                throw new ArgumentException("Only IPv4 addresses are supported.", nameof(currentAddress));
+            }
 
-            // Convert the bytes to IP addresses.
-            First = new IPAddress(firstIpAddressAsByte);
-            Last = new IPAddress(lastIpAddressAsByte);
+            if (subnetMask.AddressFamily != AddressFamily.InterNetwork)
+            {
+                throw new ArgumentException("Only IPv4 subnet masks are supported.", nameof(subnetMask));
+            }
 
-            // Convert addresses to uint for future use
-            firstAddressAsUint = ConvertToUint(First);
-            lastAddressAsUint = ConvertToUint(Last);
+            var ip = ConvertToUint(currentAddress);
+            var mask = ConvertToUint(subnetMask);
+
+            if (!IsContiguousMask(mask))
+            {
+                throw new ArgumentException("Subnet mask must be contiguous.", nameof(subnetMask));
+            }
+
+            networkAddressAsUint = ip & mask;
+            broadcastAddressAsUint = networkAddressAsUint | ~mask;
+
+            NetworkAddress = ConvertToIPv4Address(networkAddressAsUint);
+            BroadcastAddress = ConvertToIPv4Address(broadcastAddressAsUint);
+
+            if (networkAddressAsUint < broadcastAddressAsUint)
+            {
+                firstAddressAsUint = networkAddressAsUint + 1;
+                lastAddressAsUint = broadcastAddressAsUint - 1;
+            }
+            else
+            {
+                firstAddressAsUint = networkAddressAsUint;
+                lastAddressAsUint = broadcastAddressAsUint;
+            }
+
+            First = ConvertToIPv4Address(firstAddressAsUint);
+            Last = ConvertToIPv4Address(lastAddressAsUint);
         }
 
-        public int Count => (int)(lastAddressAsUint - firstAddressAsUint + 1);
+        public long Count => (long)broadcastAddressAsUint - networkAddressAsUint + 1;
 
-        public bool Contains(IPAddress ipaddress)
+        public long UsableHostCount {
+            get {
+                if (broadcastAddressAsUint <= networkAddressAsUint)
+                {
+                    return 1;
+                }
+
+                if (broadcastAddressAsUint - networkAddressAsUint == 1)
+                {
+                    return 0;
+                }
+
+                return (long)lastAddressAsUint - firstAddressAsUint + 1;
+            }
+        }
+
+        public bool Contains(IPAddress ipAddress)
         {
-            var address = ConvertToUint(ipaddress);
+            if (ipAddress == null)
+            {
+                throw new ArgumentNullException(nameof(ipAddress));
+            }
+
+            if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
+            {
+                return false;
+            }
+
+            var address = ConvertToUint(ipAddress);
+            return networkAddressAsUint <= address && address <= broadcastAddressAsUint;
+        }
+
+        public bool ContainsUsableHost(IPAddress ipAddress)
+        {
+            if (ipAddress == null)
+            {
+                throw new ArgumentNullException(nameof(ipAddress));
+            }
+
+            if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
+            {
+                return false;
+            }
+
+            if (UsableHostCount <= 0)
+            {
+                return false;
+            }
+
+            var address = ConvertToUint(ipAddress);
             return firstAddressAsUint <= address && address <= lastAddressAsUint;
+        }
+
+        public IEnumerable<IPAddress> Enumerate()
+        {
+            for (var address = networkAddressAsUint; address <= broadcastAddressAsUint; address++)
+            {
+                yield return ConvertToIPv4Address(address);
+
+                if (address == uint.MaxValue)
+                {
+                    yield break;
+                }
+            }
         }
 
         public List<IPAddress> ToList()
         {
-            var list = new List<IPAddress>();
-            for (var adr = firstAddressAsUint; adr <= lastAddressAsUint; adr++)
+            if (Count > int.MaxValue)
             {
-                var address = ConvertToIPv4Address(adr);
-                list.Add(address);
+                throw new InvalidOperationException("Subnet is too large to materialize as a List<IPAddress>.");
             }
 
-            return list;
+            return new List<IPAddress>(Enumerate());
         }
 
-        private uint ConvertToUint(IPAddress ipAddress)
+        private static bool IsContiguousMask(uint mask)
+        {
+            var inverted = ~mask;
+            return (inverted & (inverted + 1)) == 0;
+        }
+
+        private static uint ConvertToUint(IPAddress ipAddress)
         {
             var addressBytes = ipAddress.GetAddressBytes();
-            Array.Reverse(addressBytes);
+
+            if (addressBytes.Length != 4)
+            {
+                throw new ArgumentException("Only IPv4 addresses are supported.", nameof(ipAddress));
+            }
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(addressBytes);
+            }
+
             return BitConverter.ToUInt32(addressBytes, 0);
         }
 
-        private IPAddress ConvertToIPv4Address(uint value)
+        private static IPAddress ConvertToIPv4Address(uint value)
         {
             var addressBytes = BitConverter.GetBytes(value);
-            Array.Reverse(addressBytes);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(addressBytes);
+            }
+
             return new IPAddress(addressBytes);
         }
     }

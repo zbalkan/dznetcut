@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Net;
 using SharpPcap.LibPcap;
 
@@ -8,16 +7,13 @@ namespace CSArp.Model.Extensions
     // Getting a readonly collection populated with addreses.
     // If it is an IPv4 interface, you can get IP Address, subnet mask etc.
     // if not, there is only physical address. Therefore, we are checking these here.
-    //
-    // Beware that AirPcap is an obsolete protocol. Therefore we are using only winpcap devices for now.
-    // TODO: Add Mode selection: WinPcap & AirPcap.
     public static class LibPcapDeviceExtensions
     {
         public static IPV4Subnet ReadCurrentSubnet(this LibPcapLiveDevice device)
         {
             var addresses = device.Addresses.FirstOrDefault(addr => addr.Addr.ipAddress != null);
             var currentAddress = addresses.Addr.ipAddress;
-            var subnetMask = new IPAddress(addresses.Netmask.ipAddress.GetAddressBytes().Reverse().ToArray());// Sharppcap returns reversed mask
+            var subnetMask = addresses.Netmask.ipAddress;
 
             return new IPV4Subnet(currentAddress, subnetMask);
         }
