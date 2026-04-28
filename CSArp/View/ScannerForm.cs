@@ -192,7 +192,19 @@ namespace CSArp.View
 
         private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e) => StartNetworkScan();
 
-        private void aboutCSArpToolStripMenuItem_Click(object sender, EventArgs e) => _ = MessageBox.Show("Author : globalpolicy\nContact : yciloplabolg@gmail.com\nBlog : c0dew0rth.blogspot.com\nGithub : globalpolicy\nContributions are welcome!\n\nContributors:\nZafer Balkan : zafer@zaferbalkan.com", "About CSArp", MessageBoxButtons.OK);
+        private void aboutCSArpToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? Application.ProductVersion;
+            var aboutText =
+                "CSArp\n" +
+                "Version: " + version + "\n\n" +
+                "Authors: globalpolicy, Zafer Balkan (DeltaZulu OÜ)\n" +
+                "Copyright: Portions Copyright © 2017 globalpolicy; Copyright © 2024-2026 Zafer Balkan (DeltaZulu OÜ)\n" +
+                "License: MIT (see LICENSE file)\n\n" +
+                "Contributions are welcome.";
+
+            _ = MessageBox.Show(aboutText, "About CSArp", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e) => Environment.Exit(0);
 
