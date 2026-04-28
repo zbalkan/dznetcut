@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
 using CSArp.Logic;
 using CSArp.Logic.Utilities;
@@ -18,6 +19,7 @@ namespace CSArp
     {
         private readonly Spoofer _arpSpoofer;
         private readonly NetworkScanner _networkScanner;
+        private readonly SynchronizationContext? _uiContext;
 
         private IPAddress? _gatewayIpAddress;
         private LibPcapLiveDevice? _selectedDevice;
@@ -32,6 +34,7 @@ namespace CSArp
         public ScannerForm()
         {
             InitializeComponent();
+            _uiContext = SynchronizationContext.Current;
             _arpSpoofer = new Spoofer(Log);
             _networkScanner = new NetworkScanner(Log);
             _arpSpoofer.SpoofingStateChanged += _ => SafeUpdateUiState();
@@ -41,14 +44,11 @@ namespace CSArp
         private void Log(string message)
         {
             Debug.Print(message);
-            if (IsHandleCreated)
+            RunOnUiThread(() =>
             {
-                BeginInvoke(new Action(() =>
-                {
-                    richTextBoxLog.AppendText($"{DateTimeOffset.Now:O} : {message}\n");
-                    richTextBoxLog.ScrollToCaret();
-                }));
-            }
+                richTextBoxLog.AppendText($"{DateTimeOffset.Now:O} : {message}\n");
+                richTextBoxLog.ScrollToCaret();
+            });
         }
 
         private void StartNetworkScan()
@@ -192,14 +192,21 @@ namespace CSArp
             toolStripStatus.Text = "Arpspoofing active...";
 
             var targets = new Dictionary<IPAddress, PhysicalAddress>();
+            var spoofableSelectedItems = new List<ListViewItem>();
             foreach (ListViewItem item in clientListView.SelectedItems)
             {
-                if (IsProtectedTarget(item))
+                if (!TryReadClientIdentity(item, out var ipAddress, out var macAddress))
                 {
                     continue;
                 }
 
-                targets[IPAddress.Parse(item.SubItems[0].Text)] = item.SubItems[1].Text.Parse();
+                if (IsGatewayClient(ipAddress) || IsSourceClient(ipAddress, macAddress))
+                {
+                    continue;
+                }
+
+                targets[ipAddress] = macAddress;
+                spoofableSelectedItems.Add(item);
             }
 
             if (targets.Count == 0)
@@ -209,12 +216,9 @@ namespace CSArp
                 return;
             }
 
-            foreach (ListViewItem item in clientListView.SelectedItems)
+            foreach (var item in spoofableSelectedItems)
             {
-                if (!IsProtectedTarget(item))
-                {
-                    item.SubItems[2].Text = "Off";
-                }
+                item.SubItems[2].Text = "Off";
             }
 
             _arpSpoofer.Start(targets, _gatewayIpAddress!, gatewayPhysicalAddress, _selectedDevice!);
@@ -385,16 +389,30 @@ namespace CSArp
         private bool IsGatewayClient(IPAddress ipAddress) =>
             _gatewayIpAddress != null && _gatewayIpAddress.Equals(ipAddress);
 
-        private bool IsProtectedTarget(ListViewItem item)
+        private static bool TryReadClientIdentity(ListViewItem item, out IPAddress ipAddress, out PhysicalAddress macAddress)
         {
-            if (item == null)
+            ipAddress = IPAddress.None;
+            macAddress = PhysicalAddress.None;
+
+            if (item?.SubItems.Count < 2)
             {
                 return false;
             }
 
-            var ip = IPAddress.Parse(item.SubItems[0].Text);
-            var mac = item.SubItems[1].Text.Parse();
-            return IsGatewayClient(ip) || IsSourceClient(ip, mac);
+            if (!IPAddress.TryParse(item.SubItems[0].Text, out ipAddress!))
+            {
+                return false;
+            }
+
+            try
+            {
+                macAddress = item.SubItems[1].Text.Parse();
+                return true;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
         }
 
         private void ExitGracefully()
@@ -466,12 +484,35 @@ namespace CSArp
 
         private void SafeUpdateUiState()
         {
-            if (!IsHandleCreated)
+            RunOnUiThread(UpdateUiState);
+        }
+
+        private bool IsProtectedTarget(ListViewItem item)
+        {
+            return TryReadClientIdentity(item, out var ipAddress, out var macAddress)
+                && (IsGatewayClient(ipAddress) || IsSourceClient(ipAddress, macAddress));
+        }
+
+        private void RunOnUiThread(Action action)
+        {
+            if (!IsHandleCreated || IsDisposed)
             {
                 return;
             }
 
-            BeginInvoke(new Action(UpdateUiState));
+            if (_uiContext != null && _uiContext == SynchronizationContext.Current)
+            {
+                action();
+                return;
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(action);
+                return;
+            }
+
+            action();
         }
 
         private void AdjustClientListViewLayout()

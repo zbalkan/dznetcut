@@ -41,7 +41,6 @@ namespace CSArp.Logic
 
         private CancellationTokenSource? _scanCts;
         private PacketArrivalEventHandler? _backgroundHandler;
-        private LibPcapLiveDevice? _backgroundAdapter;
         private volatile bool _stopRequestedByUser;
 
         public NetworkScanner(Action<string>? log = null, ScanPolicyConfig? policy = null)
@@ -103,7 +102,7 @@ namespace CSArp.Logic
             statusProgress?.Report("Scan started...");
             scanProgress?.Report(0);
 
-            _ = Task.Run(() => RunScanOrchestration(networkAdapter, gatewayIp, token, clientProgress, statusProgress!, scanProgress!));
+            _ = Task.Run(() => RunScanOrchestration(networkAdapter, gatewayIp, token, clientProgress, statusProgress, scanProgress));
         }
 
 
@@ -130,11 +129,6 @@ namespace CSArp.Logic
                 _scanCts?.Cancel();
             }
 
-            if (_backgroundAdapter != null && _backgroundHandler != null)
-            {
-                _backgroundAdapter.OnPacketArrival -= _backgroundHandler;
-                _backgroundHandler = null;
-            }
         }
 
         private async Task RunScanOrchestration(
@@ -157,7 +151,7 @@ namespace CSArp.Logic
             {
                 _log("Phase 1/6: ARP active sweep started");
                 statusProgress?.Report("Phase 1/6: ARP sweep");
-                await RunArpActiveSweep(networkAdapter, subnet, gatewayIp, sourceAddress, evidenceStore, cancellationToken, clientProgress, statusProgress!).ConfigureAwait(false);
+                await RunArpActiveSweep(networkAdapter, subnet, gatewayIp, sourceAddress, evidenceStore, cancellationToken, clientProgress, statusProgress).ConfigureAwait(false);
                 scanProgress?.Report(35);
 
                 var parallelPhases = new List<Task>();
@@ -165,13 +159,13 @@ namespace CSArp.Logic
                 if (_policy.IcmpEnabled)
                 {
                     _log("Phase 2/6: ICMP liveness started");
-                    parallelPhases.Add(RunIcmpPhase(subnet, sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress!));
+                    parallelPhases.Add(RunIcmpPhase(subnet, sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress));
                 }
 
                 if (_policy.TcpSynEnabled)
                 {
                     _log("Phase 3/6: TCP spot checks started");
-                    parallelPhases.Add(RunTcpSynPhase(sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress!));
+                    parallelPhases.Add(RunTcpSynPhase(sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress));
                 }
 
                 if (_policy.UdpDiscoveryEnabled)
@@ -246,7 +240,6 @@ namespace CSArp.Logic
             IProgress<ClientDiscoveredEventArgs> clientProgress,
             IProgress<string> statusProgress)
         {
-            _backgroundAdapter = networkAdapter;
             _backgroundHandler = (sender, e) =>
             {
                 if (TryProcessPassivePacket(e.GetPacket(), subnet, gatewayIp, evidenceStore, out var updatedHost))
@@ -460,13 +453,12 @@ namespace CSArp.Logic
                 return;
             }
 
-            var host = evidenceStore.Snapshot().FirstOrDefault(h => Equals(h.IPv4Address, evidence.SourceIp));
-            if (host == null)
+            if (!TryGetHostByIp(evidenceStore, evidence.SourceIp, out var host))
             {
                 return;
             }
 
-            ReportDiscoveredHost(host, clientProgress, statusProgress, evidenceStore.Snapshot().Count);
+            ReportDiscoveredHost(host!, clientProgress, statusProgress, evidenceStore.Snapshot().Count);
         }
 
 
@@ -569,8 +561,7 @@ namespace CSArp.Logic
                     evidenceStore.AddEvidence(
                         new EvidenceRecord(DateTime.UtcNow, DiscoveryMethod.ArpPassive, arpPacket.SenderProtocolAddress, arpPacket.TargetProtocolAddress, arpPacket.SenderHardwareAddress, "Passive ARP", 20),
                         gatewayIp);
-                    updatedHost = evidenceStore.Snapshot().FirstOrDefault(h => Equals(h.IPv4Address, arpPacket.SenderProtocolAddress));
-                    return updatedHost != null;
+                    return TryGetHostByIp(evidenceStore, arpPacket.SenderProtocolAddress, out updatedHost);
                 }
 
                 var ipPacket = packet.Extract<IPv4Packet>();
@@ -612,8 +603,7 @@ namespace CSArp.Logic
                     new EvidenceRecord(DateTime.UtcNow, method, ipPacket.SourceAddress, ipPacket.DestinationAddress, packet.Extract<EthernetPacket>()?.SourceHardwareAddress, "Passive traffic", 15, hostnameHint: hostnameHint),
                     gatewayIp);
 
-                updatedHost = evidenceStore.Snapshot().FirstOrDefault(h => Equals(h.IPv4Address, ipPacket.SourceAddress));
-                return updatedHost != null;
+                return TryGetHostByIp(evidenceStore, ipPacket.SourceAddress, out updatedHost);
             }
             catch (Exception ex)
             {
@@ -643,7 +633,6 @@ namespace CSArp.Logic
             finally
             {
                 _backgroundHandler = null;
-                _backgroundAdapter = null;
             }
         }
 
@@ -672,6 +661,14 @@ namespace CSArp.Logic
             {
                 return null;
             }
+        }
+
+        private static bool TryGetHostByIp(EvidenceStore evidenceStore, IPAddress? ipAddress, out HostRecord? host)
+        {
+            host = ipAddress == null
+                ? null
+                : evidenceStore.Snapshot().FirstOrDefault(h => Equals(h.IPv4Address, ipAddress));
+            return host != null;
         }
     }
 }
