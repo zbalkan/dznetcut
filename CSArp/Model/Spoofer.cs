@@ -14,10 +14,10 @@ namespace CSArp.Model
     public class Spoofer
     {
         private readonly Action<string> _log;
-        private CancellationTokenSource _spoofingCts;
+        private CancellationTokenSource? _spoofingCts;
         private int _activeTargetCount;
 
-        public Spoofer(Action<string> log = null)
+        public Spoofer(Action<string>? log = null)
         {
             _log = log ?? (msg => Debug.Print(msg));
         }

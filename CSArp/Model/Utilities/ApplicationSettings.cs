@@ -32,7 +32,7 @@ namespace CSArp.Model.Utilities
             }
         }
 
-        public static string GetSavedPreferredInterfaceFriendlyName()
+        public static string? GetSavedPreferredInterfaceFriendlyName()
         {
             if (!File.Exists(SettingsFile))
             {

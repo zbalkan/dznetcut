@@ -31,11 +31,11 @@ namespace CSArp.Model
         private readonly ConcurrentDictionary<IPAddress, PhysicalAddress> _arpTable = new ConcurrentDictionary<IPAddress, PhysicalAddress>();
         private readonly object _stateLock = new object();
 
-        private CancellationTokenSource _scanCts;
-        private PacketArrivalEventHandler _backgroundHandler;
-        private LibPcapLiveDevice _backgroundAdapter;
+        private CancellationTokenSource? _scanCts;
+        private PacketArrivalEventHandler? _backgroundHandler;
+        private LibPcapLiveDevice? _backgroundAdapter;
 
-        public NetworkScanner(Action<string> log = null)
+        public NetworkScanner(Action<string>? log = null)
         {
             _log = log ?? (msg => Debug.Print(msg));
         }
@@ -85,7 +85,7 @@ namespace CSArp.Model
             statusProgress?.Report("Please wait...");
             scanProgress?.Report(0);
 
-            _ = Task.Run(() => StartForegroundScan(networkAdapter, gatewayIp, token, clientProgress, statusProgress, scanProgress));
+            _ = Task.Run(() => StartForegroundScan(networkAdapter, gatewayIp, token, clientProgress, statusProgress!, scanProgress!));
         }
 
         public void StopScan()
@@ -137,7 +137,7 @@ namespace CSArp.Model
                         continue;
                     }
 
-                    ProcessPacket(arpPacket, subnet, gatewayIp, clientProgress, statusProgress);
+                    ProcessPacket(arpPacket!, subnet, gatewayIp, clientProgress, statusProgress);
                 }
 
                 await sendTask.ConfigureAwait(false);
@@ -147,7 +147,7 @@ namespace CSArp.Model
                     _log($"Discovery task finished. {_arpTable.Count} device(s) discovered.");
                     statusProgress?.Report($"{_arpTable.Count} device(s) found");
                     scanProgress?.Report(100);
-                    StartBackgroundScan(networkAdapter, gatewayIp, cancellationToken, clientProgress, statusProgress);
+                    StartBackgroundScan(networkAdapter, gatewayIp, cancellationToken, clientProgress, statusProgress!);
                 }
             }
             catch (OperationCanceledException)
@@ -194,7 +194,7 @@ namespace CSArp.Model
                         return;
                     }
 
-                    ProcessPacket(arpPacket, subnet, gatewayIp, clientProgress, statusProgress);
+                    ProcessPacket(arpPacket!, subnet, gatewayIp, clientProgress, statusProgress);
                 };
                 networkAdapter.OnPacketArrival += _backgroundHandler;
                 networkAdapter.StartCapture();
@@ -215,6 +215,12 @@ namespace CSArp.Model
             {
                 var subnet = networkAdapter.ReadCurrentSubnet();
                 var sourceAddress = networkAdapter.ReadCurrentIpV4Address();
+
+                if (networkAdapter.MacAddress == null)
+                {
+                    _log("MAC address is null, cannot send ARP requests.");
+                    return;
+                }
 
                 if (_arpTable.TryAdd(sourceAddress, networkAdapter.MacAddress))
                 {
@@ -286,7 +292,7 @@ namespace CSArp.Model
             Debug.WriteLine("ARP request is sent to: {0}", targetIpAddress);
         }
 
-        private static bool TryExtractArpPacket(PacketCapture packetCapture, out ArpPacket arpPacket)
+        private static bool TryExtractArpPacket(PacketCapture packetCapture, out ArpPacket? arpPacket)
         {
             arpPacket = null;
             var rawcapture = packetCapture.GetPacket();

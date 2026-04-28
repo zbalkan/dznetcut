@@ -18,11 +18,11 @@ namespace CSArp.View
         private readonly Spoofer _arpSpoofer;
         private readonly NetworkScanner _networkScanner;
 
-        private IPAddress _gatewayIpAddress;
-        private LibPcapLiveDevice _selectedDevice;
-        private string _selectedInterfaceFriendlyName;
-        private IPAddress _sourceIpAddress;
-        private PhysicalAddress _sourceMacAddress;
+        private IPAddress? _gatewayIpAddress;
+        private LibPcapLiveDevice? _selectedDevice;
+        private string? _selectedInterfaceFriendlyName;
+        private IPAddress? _sourceIpAddress;
+        private PhysicalAddress? _sourceMacAddress;
 
         public ScannerForm()
         {
@@ -65,14 +65,14 @@ namespace CSArp.View
             toolStripStatus.Text = "Ready";
 
             _networkScanner.StartScan(
-                _selectedDevice,
-                _gatewayIpAddress,
+                _selectedDevice!,
+                _gatewayIpAddress!,
                 new Progress<ClientDiscoveredEventArgs>(e => AddClientToList(e.IpAddress, e.MacAddress, e.IsGateway)),
                 new Progress<string>(status => toolStripStatusScan.Text = status),
                 new Progress<int>(progress => toolStripProgressBarScan.Value = progress));
         }
 
-        private bool TryPrepareSelectedDevice(out LibPcapLiveDevice selectedDevice, out IPAddress gatewayIpAddress)
+        private bool TryPrepareSelectedDevice(out LibPcapLiveDevice? selectedDevice, out IPAddress? gatewayIpAddress)
         {
             selectedDevice = null;
             gatewayIpAddress = null;
@@ -89,7 +89,7 @@ namespace CSArp.View
                 _selectedInterfaceFriendlyName = interfaceFriendlyName;
                 CloseSelectedDevice();
                 _selectedDevice = LibPcapDeviceExtensions.GetWinPcapDevices()
-                    .FirstOrDefault(dev => string.Equals(dev.Interface.FriendlyName, _selectedInterfaceFriendlyName, StringComparison.Ordinal));
+                    .FirstOrDefault(dev => string.Equals(dev.Interface?.FriendlyName, _selectedInterfaceFriendlyName, StringComparison.Ordinal));
             }
 
             selectedDevice = _selectedDevice;
@@ -191,7 +191,7 @@ namespace CSArp.View
                 }
             }
 
-            _arpSpoofer.Start(targets, _gatewayIpAddress, gatewayPhysicalAddress, _selectedDevice);
+            _arpSpoofer.Start(targets, _gatewayIpAddress!, gatewayPhysicalAddress, _selectedDevice!);
         }
 
         private void ReconnectClients()
@@ -226,8 +226,8 @@ namespace CSArp.View
         private void Form1_Load(object sender, EventArgs e)
         {
             toolStripComboBoxDevicelist.Items.AddRange(LibPcapDeviceExtensions.GetWinPcapDevices()
-                .Select(device => device.Interface.FriendlyName)
-                .Where(name => !string.IsNullOrEmpty(name))
+                 .Select(device => device.Interface?.FriendlyName)
+                .OfType<string>()
                 .Distinct(StringComparer.Ordinal)
                 .ToArray());
 
