@@ -68,6 +68,7 @@ namespace CSArp.Model
                 throw new ArgumentNullException(nameof(gatewayIp));
             }
 
+            CancellationToken token;
             lock (_stateLock)
             {
                 if (_scanCts != null && !_scanCts.IsCancellationRequested)
@@ -77,13 +78,14 @@ namespace CSArp.Model
 
                 _scanCts?.Dispose();
                 _scanCts = new CancellationTokenSource();
+                token = _scanCts.Token;
             }
 
             _arpTable.Clear();
             statusProgress?.Report("Please wait...");
             scanProgress?.Report(0);
 
-            _ = Task.Run(() => StartForegroundScan(networkAdapter, gatewayIp, _scanCts.Token, clientProgress, statusProgress, scanProgress));
+            _ = Task.Run(() => StartForegroundScan(networkAdapter, gatewayIp, token, clientProgress, statusProgress, scanProgress));
         }
 
         public void StopScan()
