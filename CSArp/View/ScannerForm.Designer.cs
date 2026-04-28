@@ -37,8 +37,6 @@ namespace CSArp.View
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemSaveSettings = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
-            this.toolStripMenuItemMinimize = new System.Windows.Forms.ToolStripMenuItem();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.editToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemChooseInterface = new System.Windows.Forms.ToolStripMenuItem();
@@ -91,8 +89,6 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripMenuItemSaveSettings,
-            this.toolStripSeparator4,
-            this.toolStripMenuItemMinimize,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
@@ -107,25 +103,11 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.toolStripMenuItemSaveSettings.ToolTipText = "Save current settings";
             this.toolStripMenuItemSaveSettings.Click += new System.EventHandler(this.toolStripMenuItemSaveSettings_Click);
             // 
-            // toolStripSeparator4
-            // 
-            this.toolStripSeparator4.Name = "toolStripSeparator4";
-            this.toolStripSeparator4.Size = new System.Drawing.Size(160, 6);
-            // 
-            // toolStripMenuItemMinimize
-            // 
-            this.toolStripMenuItemMinimize.Name = "toolStripMenuItemMinimize";
-            this.toolStripMenuItemMinimize.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.T)));
-            this.toolStripMenuItemMinimize.Size = new System.Drawing.Size(163, 22);
-            this.toolStripMenuItemMinimize.Text = "Minimize";
-            this.toolStripMenuItemMinimize.ToolTipText = "Minimize to tray";
-            this.toolStripMenuItemMinimize.Click += new System.EventHandler(this.toolStripMenuItemMinimize_Click);
-            // 
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
             this.exitToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Q)));
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(163, 22);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(135, 22);
             this.exitToolStripMenuItem.Text = "Exit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
             // 
@@ -327,6 +309,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.clientListView.UseCompatibleStateImageBehavior = false;
             this.clientListView.View = System.Windows.Forms.View.Details;
             this.clientListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.clientListView_ItemSelectionChanged);
+            this.clientListView.Resize += new System.EventHandler(this.clientListView_Resize);
             // 
             // columnHeaderIP
             // 
@@ -425,8 +408,6 @@ private System.Windows.Forms.ColumnHeader columnHeaderIP;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemChooseInterface;
         private System.Windows.Forms.ToolStripComboBox toolStripComboBoxDevicelist;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
-        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemMinimize;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemRefreshClients;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabelSpringer;

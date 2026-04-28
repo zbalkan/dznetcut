@@ -64,7 +64,7 @@ namespace CSArp.Model
 
                 if (!string.IsNullOrWhiteSpace(evidence.HostnameHint))
                 {
-                    host.HostnameCandidates.Add(new HostnameCandidate(evidence.HostnameHint.Trim(), evidence.SourceMethod, evidence.TimestampUtc));
+                    host.HostnameCandidates.Add(new HostnameCandidate(evidence.HostnameHint!.Trim(), evidence.SourceMethod, evidence.TimestampUtc));
                 }
 
                 var priorConfidence = host.ConfidenceScore;
@@ -114,14 +114,45 @@ namespace CSArp.Model
         {
             var score = 0;
 
-            if (host.DiscoveryMethods.Contains(DiscoveryMethod.ArpActive)) score += 45;
-            if (host.DiscoveryMethods.Contains(DiscoveryMethod.ArpPassive)) score += 20;
-            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Icmp)) score += 25;
-            if (host.DiscoveryMethods.Contains(DiscoveryMethod.TcpSyn)) score += 25;
-            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Mdns)) score += 20;
-            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Nbns)) score += 20;
-            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Ssdp)) score += 20;
-            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Llmnr)) score += 20;
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.ArpActive))
+            {
+                score += 45;
+            }
+
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.ArpPassive))
+            {
+                score += 20;
+            }
+
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Icmp))
+            {
+                score += 25;
+            }
+
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.TcpSyn))
+            {
+                score += 25;
+            }
+
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Mdns))
+            {
+                score += 20;
+            }
+
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Nbns))
+            {
+                score += 20;
+            }
+
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Ssdp))
+            {
+                score += 20;
+            }
+
+            if (host.DiscoveryMethods.Contains(DiscoveryMethod.Llmnr))
+            {
+                score += 20;
+            }
 
             if (host.DiscoveryMethods.Count >= 2)
             {

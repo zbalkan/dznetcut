@@ -12,6 +12,7 @@ namespace CSArp.Model.Utilities
         private const string SettingsFile = "CSArp_settings.ini";
         private const string MajorDelimiter = "--------------------------------------------------------------";
         private const char MinorDelimiter = '$';
+        private const string ShowLogPrefix = "show_log=";
 
         public static string GetSavedClientNameFromMAC(string clientMacAddress)
         {
@@ -34,24 +35,15 @@ namespace CSArp.Model.Utilities
 
         public static string? GetSavedPreferredInterfaceFriendlyName()
         {
-            if (!File.Exists(SettingsFile))
-            {
-                return null;
-            }
-
-            try
-            {
-                using var reader = File.OpenText(SettingsFile);
-                return reader.ReadLine();
-            }
-            catch (Exception ex)
-            {
-                Debug.Print("Exception in ApplicationSettings.GetSavedPreferredInterfaceFriendlyName\n" + ex.Message);
-                return null;
-            }
+            return GetSettingsMetadata().InterfaceFriendlyName;
         }
 
-        public static bool SaveSettings(ListView listView, string interfaceFriendlyName)
+        public static bool? GetSavedShowLog()
+        {
+            return GetSettingsMetadata().ShowLog;
+        }
+
+        public static bool SaveSettings(ListView listView, string interfaceFriendlyName, bool showLog)
         {
             try
             {
@@ -69,7 +61,7 @@ namespace CSArp.Model.Utilities
                     }
                 }
 
-                WriteToFile(interfaceFriendlyName, entries, SettingsFile);
+                WriteToFile(interfaceFriendlyName, showLog, entries, SettingsFile);
                 return true;
             }
             catch (Exception ex)
@@ -79,10 +71,11 @@ namespace CSArp.Model.Utilities
             }
         }
 
-        private static void WriteToFile(string interfaceFriendlyName, Dictionary<string, string> entries, string fileName)
+        private static void WriteToFile(string interfaceFriendlyName, bool showLog, Dictionary<string, string> entries, string fileName)
         {
             var content = new StringBuilder();
             content.AppendLine(interfaceFriendlyName ?? string.Empty);
+            content.AppendLine($"{ShowLogPrefix}{showLog}");
             content.AppendLine(MajorDelimiter);
 
             foreach (var entry in entries)
@@ -131,6 +124,41 @@ namespace CSArp.Model.Utilities
             }
 
             return entries;
+        }
+
+        private static (string? InterfaceFriendlyName, bool? ShowLog) GetSettingsMetadata()
+        {
+            if (!File.Exists(SettingsFile))
+            {
+                return (null, null);
+            }
+
+            try
+            {
+                var lines = File.ReadAllLines(SettingsFile);
+                if (lines.Length == 0)
+                {
+                    return (null, null);
+                }
+
+                var interfaceFriendlyName = string.IsNullOrWhiteSpace(lines[0]) ? null : lines[0];
+                bool? showLog = null;
+
+                if (lines.Length > 1 && lines[1].StartsWith(ShowLogPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (bool.TryParse(lines[1].Substring(ShowLogPrefix.Length), out var parsedValue))
+                    {
+                        showLog = parsedValue;
+                    }
+                }
+
+                return (interfaceFriendlyName, showLog);
+            }
+            catch (Exception ex)
+            {
+                Debug.Print("Exception in ApplicationSettings.GetSettingsMetadata\n" + ex.Message);
+                return (null, null);
+            }
         }
     }
 }

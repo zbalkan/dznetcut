@@ -101,7 +101,7 @@ namespace CSArp.Model
             statusProgress?.Report("Scan started...");
             scanProgress?.Report(0);
 
-            _ = Task.Run(() => RunScanOrchestration(networkAdapter, gatewayIp, token, clientProgress, statusProgress, scanProgress));
+            _ = Task.Run(() => RunScanOrchestration(networkAdapter, gatewayIp, token, clientProgress, statusProgress!, scanProgress!));
         }
 
 
@@ -155,7 +155,7 @@ namespace CSArp.Model
             {
                 _log("Phase 1/6: ARP active sweep started");
                 statusProgress?.Report("Phase 1/6: ARP sweep");
-                await RunArpActiveSweep(networkAdapter, subnet, gatewayIp, sourceAddress, evidenceStore, cancellationToken, clientProgress, statusProgress).ConfigureAwait(false);
+                await RunArpActiveSweep(networkAdapter, subnet, gatewayIp, sourceAddress, evidenceStore, cancellationToken, clientProgress, statusProgress!).ConfigureAwait(false);
                 scanProgress?.Report(35);
 
                 var parallelPhases = new List<Task>();
@@ -163,13 +163,13 @@ namespace CSArp.Model
                 if (_policy.IcmpEnabled)
                 {
                     _log("Phase 2/6: ICMP liveness started");
-                    parallelPhases.Add(RunIcmpPhase(subnet, sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress));
+                    parallelPhases.Add(RunIcmpPhase(subnet, sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress!));
                 }
 
                 if (_policy.TcpSynEnabled)
                 {
                     _log("Phase 3/6: TCP spot checks started");
-                    parallelPhases.Add(RunTcpSynPhase(sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress));
+                    parallelPhases.Add(RunTcpSynPhase(sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress!));
                 }
 
                 if (_policy.UdpDiscoveryEnabled)
@@ -584,10 +584,22 @@ namespace CSArp.Model
                 var udpPacket = packet.Extract<UdpPacket>();
                 if (udpPacket != null)
                 {
-                    if (udpPacket.SourcePort == 5353 || udpPacket.DestinationPort == 5353) method = DiscoveryMethod.Mdns;
-                    else if (udpPacket.SourcePort == 137 || udpPacket.DestinationPort == 137) method = DiscoveryMethod.Nbns;
-                    else if (udpPacket.SourcePort == 1900 || udpPacket.DestinationPort == 1900) method = DiscoveryMethod.Ssdp;
-                    else if (udpPacket.SourcePort == 5355 || udpPacket.DestinationPort == 5355) method = DiscoveryMethod.Llmnr;
+                    if (udpPacket.SourcePort == 5353 || udpPacket.DestinationPort == 5353)
+                    {
+                        method = DiscoveryMethod.Mdns;
+                    }
+                    else if (udpPacket.SourcePort == 137 || udpPacket.DestinationPort == 137)
+                    {
+                        method = DiscoveryMethod.Nbns;
+                    }
+                    else if (udpPacket.SourcePort == 1900 || udpPacket.DestinationPort == 1900)
+                    {
+                        method = DiscoveryMethod.Ssdp;
+                    }
+                    else if (udpPacket.SourcePort == 5355 || udpPacket.DestinationPort == 5355)
+                    {
+                        method = DiscoveryMethod.Llmnr;
+                    }
 
                     if (udpPacket.PayloadData != null && udpPacket.PayloadData.Length > 0)
                     {

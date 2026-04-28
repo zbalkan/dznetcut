@@ -22,6 +22,8 @@ namespace CSArp.Model
             _log = log ?? (msg => Debug.Print(msg));
         }
 
+        public bool IsSpoofing => _spoofingCts != null && !_spoofingCts.IsCancellationRequested;
+
         public void Start(
             IReadOnlyDictionary<IPAddress, PhysicalAddress> targets,
             IPAddress gatewayIpAddress,

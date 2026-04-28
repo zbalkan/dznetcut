@@ -25,12 +25,16 @@ namespace CSArp.View
         private IPAddress? _sourceIpAddress;
         private PhysicalAddress? _sourceMacAddress;
         private readonly Dictionary<string, ListViewItem> _clientItemsByIp = new Dictionary<string, ListViewItem>(StringComparer.Ordinal);
+        private readonly Timer _stateTimer = new Timer { Interval = 500 };
+        private string? _nameEditorSelectionKey;
 
         public ScannerForm()
         {
             InitializeComponent();
             _arpSpoofer = new Spoofer(Log);
             _networkScanner = new NetworkScanner(Log);
+            _stateTimer.Tick += (_, __) => UpdateUiState();
+            _stateTimer.Start();
         }
 
         private void Log(string message)
@@ -40,7 +44,7 @@ namespace CSArp.View
             {
                 BeginInvoke(new Action(() =>
                 {
-                    richTextBoxLog.AppendText($"{DateTime.Now} : {message}\n");
+                    richTextBoxLog.AppendText($"{DateTimeOffset.Now:O} : {message}\n");
                     richTextBoxLog.ScrollToCaret();
                 }));
             }
@@ -73,6 +77,7 @@ namespace CSArp.View
                 new Progress<ClientDiscoveredEventArgs>(e => AddClientToList(e.IpAddress, e.MacAddress, e.IsGateway)),
                 new Progress<string>(status => toolStripStatusScan.Text = status),
                 new Progress<int>(progress => toolStripProgressBarScan.Value = progress));
+            UpdateUiState();
         }
 
         private bool TryPrepareSelectedDevice(out LibPcapLiveDevice? selectedDevice, out IPAddress? gatewayIpAddress)
@@ -131,6 +136,7 @@ namespace CSArp.View
         {
             _networkScanner.StopScan();
             CloseSelectedDevice();
+            UpdateUiState();
         }
 
         private void CloseSelectedDevice()
@@ -195,6 +201,7 @@ namespace CSArp.View
             }
 
             _arpSpoofer.Start(targets, _gatewayIpAddress!, gatewayPhysicalAddress, _selectedDevice!);
+            UpdateUiState();
         }
 
         private void ReconnectClients()
@@ -206,6 +213,7 @@ namespace CSArp.View
             }
 
             toolStripStatus.Text = "Stopped";
+            UpdateUiState();
         }
 
         private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e) => StartNetworkScan();
@@ -235,6 +243,11 @@ namespace CSArp.View
                 .ToArray());
 
             toolStripComboBoxDevicelist.Text = ApplicationSettings.GetSavedPreferredInterfaceFriendlyName() ?? string.Empty;
+            var showLog = ApplicationSettings.GetSavedShowLog() ?? false;
+            showLogToolStripMenuItem.Checked = showLog;
+            ApplyLogVisibility(showLog);
+            AdjustClientListViewLayout();
+            UpdateUiState();
         }
 
         private void cutoffToolStripMenuItem_Click(object sender, EventArgs e) => DisconnectSelectedClients();
@@ -254,16 +267,16 @@ namespace CSArp.View
         {
             if (e.KeyCode == Keys.Enter && clientListView.SelectedItems.Count == 1)
             {
-                clientListView.SelectedItems[0].SubItems[3].Text = toolStripTextBoxClientName.Text;
+                var selectedItem = clientListView.SelectedItems[0];
+                selectedItem.SubItems[3].Text = toolStripTextBoxClientName.Text;
                 toolStripTextBoxClientName.Text = string.Empty;
+                UpdateUiState();
             }
         }
 
-        private void toolStripMenuItemMinimize_Click(object sender, EventArgs e) => WindowState = FormWindowState.Minimized;
-
         private void toolStripMenuItemSaveSettings_Click(object sender, EventArgs e)
         {
-            if (ApplicationSettings.SaveSettings(clientListView, toolStripComboBoxDevicelist.Text))
+            if (ApplicationSettings.SaveSettings(clientListView, toolStripComboBoxDevicelist.Text, showLogToolStripMenuItem.Checked))
             {
                 toolStripStatus.Text = "Settings saved!";
             }
@@ -271,9 +284,7 @@ namespace CSArp.View
 
         private void showLogToolStripMenuItem_CheckStateChanged(object sender, EventArgs e)
         {
-            var showLog = showLogToolStripMenuItem.Checked;
-            richTextBoxLog.Visible = showLog;
-            clientListView.Height = showLog ? Height - 184 : Height - 93;
+            ApplyLogVisibility(showLogToolStripMenuItem.Checked);
         }
 
         private void saveStripMenuItem_Click(object sender, EventArgs e)
@@ -326,7 +337,10 @@ namespace CSArp.View
             if (_clientItemsByIp.TryGetValue(ipKey, out var existing))
             {
                 existing.SubItems[1].Text = macValue;
-                existing.SubItems[3].Text = name;
+                if (string.IsNullOrWhiteSpace(existing.SubItems[3].Text))
+                {
+                    existing.SubItems[3].Text = name;
+                }
                 existing.ToolTipText = toolTip;
                 return;
             }
@@ -344,6 +358,7 @@ namespace CSArp.View
 
             _clientItemsByIp[ipKey] = entry;
             _ = clientListView.Items.Add(entry);
+            UpdateUiState();
         }
 
         private bool IsSourceClient(IPAddress ipAddress, PhysicalAddress macAddress) =>
@@ -369,6 +384,7 @@ namespace CSArp.View
         {
             StopNetworkScan();
             _arpSpoofer.StopAll();
+            _stateTimer.Stop();
         }
 
         private void stopNetworkScanToolStripMenuItem_Click(object sender, EventArgs e)
@@ -381,6 +397,7 @@ namespace CSArp.View
         {
             if (!e.IsSelected || !IsProtectedTarget(e.Item))
             {
+                UpdateUiState();
                 return;
             }
 
@@ -389,6 +406,70 @@ namespace CSArp.View
             toolStripStatus.Text = IsGatewayClient(ip)
                 ? "The gateway cannot be spoofed."
                 : "The source device cannot be spoofed.";
+            UpdateUiState();
+        }
+
+        private void clientListView_Resize(object sender, EventArgs e) => AdjustClientListViewLayout();
+
+        private void ApplyLogVisibility(bool showLog)
+        {
+            richTextBoxLog.Visible = showLog;
+            clientListView.Height = showLog ? Height - 184 : Height - 93;
+            AdjustClientListViewLayout();
+        }
+
+        private void UpdateUiState()
+        {
+            var hasSelection = clientListView.SelectedItems.Count > 0;
+            var hasSingleSelection = clientListView.SelectedItems.Count == 1;
+            var hasSpoofing = _arpSpoofer.IsSpoofing;
+            var hasScan = _networkScanner.IsScanning;
+
+            cutoffToolStripMenuItem.Enabled = hasSelection && !hasScan;
+            reconnectToolStripMenuItem.Enabled = hasSpoofing;
+            stopNetworkScanToolStripMenuItem.Enabled = hasScan;
+            toolStripMenuItemRefreshClients.Enabled = !hasScan;
+            ClientNametoolStripMenuItem.Enabled = hasSingleSelection;
+            toolStripTextBoxClientName.Enabled = hasSingleSelection;
+
+            if (hasSingleSelection)
+            {
+                var selectedKey = clientListView.SelectedItems[0].SubItems[0].Text;
+                if (!string.Equals(_nameEditorSelectionKey, selectedKey, StringComparison.Ordinal))
+                {
+                    _nameEditorSelectionKey = selectedKey;
+                    toolStripTextBoxClientName.Text = clientListView.SelectedItems[0].SubItems[3].Text;
+                }
+            }
+            else
+            {
+                _nameEditorSelectionKey = null;
+                toolStripTextBoxClientName.Text = string.Empty;
+            }
+        }
+
+        private void AdjustClientListViewLayout()
+        {
+            if (clientListView.ClientSize.Width <= 0)
+            {
+                return;
+            }
+
+            var availableWidth = clientListView.ClientSize.Width - SystemInformation.VerticalScrollBarWidth;
+            if (availableWidth < 100)
+            {
+                return;
+            }
+
+            var ipWidth = Math.Max(120, (int)(availableWidth * 0.20));
+            var macWidth = Math.Max(160, (int)(availableWidth * 0.28));
+            var statusWidth = Math.Max(90, (int)(availableWidth * 0.12));
+            var nameWidth = Math.Max(180, availableWidth - (ipWidth + macWidth + statusWidth));
+
+            columnHeaderIP.Width = ipWidth;
+            columnHeaderMAC.Width = macWidth;
+            columnHeaderCutoffStatus.Width = statusWidth;
+            columnHeaderClientname.Width = nameWidth;
         }
     }
 }
