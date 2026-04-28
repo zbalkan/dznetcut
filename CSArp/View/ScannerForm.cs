@@ -25,7 +25,6 @@ namespace CSArp.View
         private IPAddress? _sourceIpAddress;
         private PhysicalAddress? _sourceMacAddress;
         private readonly Dictionary<string, ListViewItem> _clientItemsByIp = new Dictionary<string, ListViewItem>(StringComparer.Ordinal);
-        private readonly Timer _stateTimer = new Timer { Interval = 500 };
         private string? _nameEditorSelectionKey;
 
         public ScannerForm()
@@ -33,8 +32,8 @@ namespace CSArp.View
             InitializeComponent();
             _arpSpoofer = new Spoofer(Log);
             _networkScanner = new NetworkScanner(Log);
-            _stateTimer.Tick += (_, __) => UpdateUiState();
-            _stateTimer.Start();
+            _arpSpoofer.SpoofingStateChanged += _ => SafeUpdateUiState();
+            _networkScanner.ScanStateChanged += _ => SafeUpdateUiState();
         }
 
         private void Log(string message)
@@ -164,11 +163,17 @@ namespace CSArp.View
                 return;
             }
 
-            var gatewayPhysicalAddress = clientListView.Items
-                .OfType<ListViewItem>()
-                .Where(item => item.SubItems[0].Text == _gatewayIpAddress?.ToString())
-                .Select(item => item.SubItems[1].Text.Parse())
-                .FirstOrDefault();
+            PhysicalAddress? gatewayPhysicalAddress = null;
+            foreach (ListViewItem item in clientListView.Items)
+            {
+                if (item.SubItems[0].Text != _gatewayIpAddress?.ToString())
+                {
+                    continue;
+                }
+
+                gatewayPhysicalAddress = item.SubItems[1].Text.Parse();
+                break;
+            }
 
             if (gatewayPhysicalAddress == null)
             {
@@ -178,12 +183,16 @@ namespace CSArp.View
 
             toolStripStatus.Text = "Arpspoofing active...";
 
-            var targets = clientListView.SelectedItems
-                .OfType<ListViewItem>()
-                .Where(item => !IsProtectedTarget(item))
-                .ToDictionary(
-                    item => IPAddress.Parse(item.SubItems[0].Text),
-                    item => item.SubItems[1].Text.Parse());
+            var targets = new Dictionary<IPAddress, PhysicalAddress>();
+            foreach (ListViewItem item in clientListView.SelectedItems)
+            {
+                if (IsProtectedTarget(item))
+                {
+                    continue;
+                }
+
+                targets[IPAddress.Parse(item.SubItems[0].Text)] = item.SubItems[1].Text.Parse();
+            }
 
             if (targets.Count == 0)
             {
@@ -384,7 +393,6 @@ namespace CSArp.View
         {
             StopNetworkScan();
             _arpSpoofer.StopAll();
-            _stateTimer.Stop();
         }
 
         private void stopNetworkScanToolStripMenuItem_Click(object sender, EventArgs e)
@@ -446,6 +454,16 @@ namespace CSArp.View
                 _nameEditorSelectionKey = null;
                 toolStripTextBoxClientName.Text = string.Empty;
             }
+        }
+
+        private void SafeUpdateUiState()
+        {
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            BeginInvoke(new Action(UpdateUiState));
         }
 
         private void AdjustClientListViewLayout()

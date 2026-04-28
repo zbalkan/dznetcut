@@ -36,7 +36,6 @@ namespace CSArp.Model
         private readonly object _stateLock = new object();
         private readonly object _reportedHostsLock = new object();
         private readonly HashSet<IPAddress> _reportedHostSet = new HashSet<IPAddress>();
-        private readonly List<IPAddress> _reportedHostOrder = new List<IPAddress>();
         private readonly Dictionary<IPAddress, int> _lastReportedConfidenceByIp = new Dictionary<IPAddress, int>();
         private readonly ScanPolicyConfig _policy;
 
@@ -50,6 +49,8 @@ namespace CSArp.Model
             _log = log ?? (msg => Debug.Print(msg));
             _policy = policy ?? ScanPolicyConfig.Balanced;
         }
+
+        public event Action<bool>? ScanStateChanged;
 
         public bool IsScanning
         {
@@ -95,6 +96,7 @@ namespace CSArp.Model
                 _scanCts = new CancellationTokenSource(TimeSpan.FromSeconds(adaptiveTimeoutSeconds));
                 token = _scanCts.Token;
             }
+            ScanStateChanged?.Invoke(true);
 
             ClearReportedHosts();
             _log($"Scan started on {networkAdapter.Interface?.FriendlyName ?? networkAdapter.Name} with gateway {gatewayIp}. Timeout={adaptiveTimeoutSeconds}s");
@@ -232,6 +234,7 @@ namespace CSArp.Model
                     _scanCts?.Dispose();
                     _scanCts = null;
                 }
+                ScanStateChanged?.Invoke(false);
             }
         }
 
@@ -472,7 +475,6 @@ namespace CSArp.Model
             lock (_reportedHostsLock)
             {
                 _reportedHostSet.Clear();
-                _reportedHostOrder.Clear();
                 _lastReportedConfidenceByIp.Clear();
             }
         }
@@ -486,7 +488,6 @@ namespace CSArp.Model
                     return false;
                 }
 
-                _reportedHostOrder.Add(ipAddress);
                 return true;
             }
         }

@@ -43,16 +43,14 @@ namespace CSArp.Model
 
     public sealed class HostRecord
     {
-        public HostRecord(Guid hostId)
+        public HostRecord()
         {
-            HostId = hostId;
             DiscoveryMethods = new HashSet<DiscoveryMethod>();
             HostnameCandidates = new List<HostnameCandidate>();
             OpenPortsHints = new HashSet<int>();
             Flags = HostFlags.None;
         }
 
-        public Guid HostId { get; }
         public IPAddress? IPv4Address { get; set; }
         public PhysicalAddress? MacAddress { get; set; }
         public DateTime FirstSeenUtc { get; set; }
@@ -60,7 +58,6 @@ namespace CSArp.Model
         public HashSet<DiscoveryMethod> DiscoveryMethods { get; }
         public int ConfidenceScore { get; set; }
         public bool IsGatewayCandidate { get; set; }
-        public string? VendorOui { get; set; }
         public List<HostnameCandidate> HostnameCandidates { get; }
         public HashSet<int> OpenPortsHints { get; }
         public HostFlags Flags { get; set; }
@@ -135,6 +132,5 @@ namespace CSArp.Model
         public int[] TcpSynPorts { get; set; } = { 443, 80, 22, 3389 };
         public bool UdpDiscoveryEnabled { get; set; } = true;
         public int PassiveHoldSeconds { get; set; } = 12;
-        public int UiThrottleMs { get; set; } = 200;
     }
 }

@@ -9,9 +9,7 @@ namespace CSArp.Model
     {
         private readonly object _sync = new object();
         private readonly Dictionary<IPAddress, HostRecord> _hostsByIp = new Dictionary<IPAddress, HostRecord>();
-        private readonly List<HostRecord> _hostList = new List<HostRecord>();
         private readonly HashSet<string> _evidenceFingerprints = new HashSet<string>(StringComparer.Ordinal);
-        private readonly List<EvidenceRecord> _evidenceTimeline = new List<EvidenceRecord>();
 
         public bool AddEvidence(EvidenceRecord evidence, IPAddress gatewayIp)
         {
@@ -28,11 +26,9 @@ namespace CSArp.Model
                     return false;
                 }
 
-                _evidenceTimeline.Add(evidence);
-
                 if (!_hostsByIp.TryGetValue(evidence.SourceIp, out var host))
                 {
-                    host = new HostRecord(Guid.NewGuid())
+                    host = new HostRecord
                     {
                         IPv4Address = evidence.SourceIp,
                         FirstSeenUtc = evidence.TimestampUtc,
@@ -40,7 +36,6 @@ namespace CSArp.Model
                     };
 
                     _hostsByIp.Add(evidence.SourceIp, host);
-                    _hostList.Add(host);
                 }
 
                 if (host.MacAddress != null && evidence.SourceMac != null && !host.MacAddress.Equals(evidence.SourceMac))
@@ -77,7 +72,7 @@ namespace CSArp.Model
         {
             lock (_sync)
             {
-                return _hostList
+                return _hostsByIp.Values
                     .OrderByDescending(h => h.ConfidenceScore)
                     .ThenBy(h => h.IPv4Address?.ToString(), StringComparer.Ordinal)
                     .ToArray();
@@ -88,15 +83,7 @@ namespace CSArp.Model
         {
             lock (_sync)
             {
-                return _hostList.Where(h => h.ConfidenceScore <= maxConfidence).ToArray();
-            }
-        }
-
-        public IReadOnlyCollection<EvidenceRecord> SnapshotEvidenceTimeline()
-        {
-            lock (_sync)
-            {
-                return _evidenceTimeline.ToArray();
+                return _hostsByIp.Values.Where(h => h.ConfidenceScore <= maxConfidence).ToArray();
             }
         }
 

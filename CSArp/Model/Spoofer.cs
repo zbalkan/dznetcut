@@ -23,6 +23,7 @@ namespace CSArp.Model
         }
 
         public bool IsSpoofing => _spoofingCts != null && !_spoofingCts.IsCancellationRequested;
+        public event Action<bool>? SpoofingStateChanged;
 
         public void Start(
             IReadOnlyDictionary<IPAddress, PhysicalAddress> targets,
@@ -40,6 +41,7 @@ namespace CSArp.Model
 
             _spoofingCts = new CancellationTokenSource();
             _activeTargetCount = targets.Count;
+            SpoofingStateChanged?.Invoke(true);
 
             if (!networkAdapter.Opened)
             {
@@ -78,6 +80,7 @@ namespace CSArp.Model
             _spoofingCts.Cancel();
             _log($"Spoofing task stopped for {_activeTargetCount} target(s).");
             _activeTargetCount = 0;
+            SpoofingStateChanged?.Invoke(false);
         }
 
         private async Task SendSpoofingPacket(
