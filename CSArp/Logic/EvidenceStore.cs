@@ -23,6 +23,12 @@ namespace CSArp.Logic
                 var fingerprint = BuildFingerprint(evidence);
                 if (!_evidenceFingerprints.Add(fingerprint))
                 {
+                    if (_hostsByIp.TryGetValue(evidence.SourceIp, out var existingHost) &&
+                        evidence.TimestampUtc > existingHost.LastSeenUtc)
+                    {
+                        existingHost.LastSeenUtc = evidence.TimestampUtc;
+                    }
+
                     return false;
                 }
 

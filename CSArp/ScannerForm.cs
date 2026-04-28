@@ -29,6 +29,7 @@ namespace CSArp
         private readonly Dictionary<string, ListViewItem> _clientItemsByIp = new Dictionary<string, ListViewItem>(StringComparer.Ordinal);
         private readonly Dictionary<string, AdapterSelectionOptionModel> _adapterOptionsByDisplayText = new Dictionary<string, AdapterSelectionOptionModel>(StringComparer.Ordinal);
         private readonly Dictionary<string, LibPcapLiveDevice> _pcapDevicesById = new Dictionary<string, LibPcapLiveDevice>(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _displayTextByDeviceId = new Dictionary<string, string>(StringComparer.Ordinal);
         private string? _nameEditorSelectionKey;
 
         public ScannerForm()
@@ -142,6 +143,7 @@ namespace CSArp
         private void StopNetworkScan()
         {
             _networkScanner.StopScan();
+            _networkScanner.WaitForStop(TimeSpan.FromSeconds(3));
             CloseSelectedDevice();
             UpdateUiState();
         }
@@ -253,11 +255,11 @@ namespace CSArp
             _ = MessageBox.Show(aboutText, "About CSArp", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        private void exitToolStripMenuItem_Click(object sender, EventArgs e) => Environment.Exit(0);
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e) => Close();
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            PopulateAdapterDropDown(preferredSelection: null);
+            PopulateAdapterDropDown(ApplicationSettings.GetSavedPreferredInterfaceFriendlyName());
             var showLog = ApplicationSettings.GetSavedShowLog() ?? false;
             showLogToolStripMenuItem.Checked = showLog;
             ApplyLogVisibility(showLog);
@@ -551,6 +553,7 @@ namespace CSArp
 
             _adapterOptionsByDisplayText.Clear();
             _pcapDevicesById.Clear();
+            _displayTextByDeviceId.Clear();
             toolStripComboBoxDevicelist.Items.Clear();
             foreach (var device in LibPcapDeviceExtensions.GetWinPcapDevices())
             {
@@ -559,8 +562,10 @@ namespace CSArp
 
             foreach (var option in visibleOptions)
             {
-                _adapterOptionsByDisplayText[option.DisplayText] = option;
-                toolStripComboBoxDevicelist.Items.Add(option.DisplayText);
+                var displayText = BuildUniqueDisplayText(option);
+                _adapterOptionsByDisplayText[displayText] = option;
+                _displayTextByDeviceId[option.DeviceId] = displayText;
+                toolStripComboBoxDevicelist.Items.Add(displayText);
             }
 
             if (visibleOptions.Count == 0)
@@ -573,11 +578,36 @@ namespace CSArp
             }
 
             var selectedText = visibleOptions
-                .Select(option => option.DisplayText)
+                .Select(option => _displayTextByDeviceId.TryGetValue(option.DeviceId, out var mappedText) ? mappedText : option.DisplayText)
                 .FirstOrDefault(text => string.Equals(text, currentSelection, StringComparison.Ordinal))
+                ?? visibleOptions
+                    .Select(option => _displayTextByDeviceId.TryGetValue(option.DeviceId, out var mappedText) ? mappedText : option.DisplayText)
+                    .FirstOrDefault()
                 ?? string.Empty;
 
             toolStripComboBoxDevicelist.Text = selectedText;
+        }
+
+        private string BuildUniqueDisplayText(AdapterSelectionOptionModel option)
+        {
+            var proposedText = option.DisplayText;
+            if (!_adapterOptionsByDisplayText.ContainsKey(proposedText))
+            {
+                return proposedText;
+            }
+
+            var suffix = option.DeviceId.Length > 12
+                ? option.DeviceId.Substring(option.DeviceId.Length - 12)
+                : option.DeviceId;
+            var candidate = $"{proposedText} ({suffix})";
+            var increment = 2;
+            while (_adapterOptionsByDisplayText.ContainsKey(candidate))
+            {
+                candidate = $"{proposedText} ({suffix} #{increment})";
+                increment++;
+            }
+
+            return candidate;
         }
 
         private static IReadOnlyList<AdapterSelectionOptionModel> BuildAdapterOptions()

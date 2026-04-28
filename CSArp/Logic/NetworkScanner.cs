@@ -40,6 +40,7 @@ namespace CSArp.Logic
         private readonly ScanPolicyConfig _policy;
 
         private CancellationTokenSource? _scanCts;
+        private Task? _scanTask;
         private PacketArrivalEventHandler? _backgroundHandler;
         private volatile bool _stopRequestedByUser;
 
@@ -102,7 +103,10 @@ namespace CSArp.Logic
             statusProgress?.Report("Scan started...");
             scanProgress?.Report(0);
 
-            _ = Task.Run(() => RunScanOrchestration(networkAdapter, gatewayIp, token, clientProgress, statusProgress, scanProgress));
+            lock (_stateLock)
+            {
+                _scanTask = Task.Run(() => RunScanOrchestration(networkAdapter, gatewayIp, token, clientProgress, statusProgress, scanProgress));
+            }
         }
 
 
@@ -131,6 +135,28 @@ namespace CSArp.Logic
 
         }
 
+        public void WaitForStop(TimeSpan timeout)
+        {
+            Task? scanTask;
+            lock (_stateLock)
+            {
+                scanTask = _scanTask;
+            }
+
+            if (scanTask == null)
+            {
+                return;
+            }
+
+            try
+            {
+                scanTask.Wait(timeout);
+            }
+            catch (AggregateException)
+            {
+            }
+        }
+
         private async Task RunScanOrchestration(
             LibPcapLiveDevice networkAdapter,
             IPAddress gatewayIp,
@@ -140,7 +166,6 @@ namespace CSArp.Logic
             IProgress<int> scanProgress)
         {
             var evidenceStore = new EvidenceStore();
-            _stopRequestedByUser = false;
             var subnet = networkAdapter.ReadCurrentSubnet();
             var sourceAddress = networkAdapter.ReadCurrentIpV4Address();
 
@@ -227,6 +252,7 @@ namespace CSArp.Logic
                 {
                     _scanCts?.Dispose();
                     _scanCts = null;
+                    _scanTask = null;
                 }
                 ScanStateChanged?.Invoke(false);
             }
