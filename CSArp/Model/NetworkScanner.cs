@@ -77,7 +77,7 @@ namespace CSArp.Model
                 {
                     var stopwatch = new Stopwatch();
                     stopwatch.Start();
-                    while ((networkAdapter.GetNextPacket(out var rawcapture) != GetPacketStatus.NoRemainingPackets) && stopwatch.ElapsedMilliseconds <= foregroundScanTimeout && scanning)
+                    while ((networkAdapter.GetNextPacket(out var rawcapture) == GetPacketStatus.PacketRead) && stopwatch.ElapsedMilliseconds <= foregroundScanTimeout && scanning)
                     {
                         if (!TryExtractArpPacket(rawcapture, out var arppacket))
                         {
