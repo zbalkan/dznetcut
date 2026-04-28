@@ -7,12 +7,12 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Windows.Forms;
-using CSArp.Model;
-using CSArp.Model.Utilities;
+using CSArp.Logic;
+using CSArp.Logic.Utilities;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
-namespace CSArp.View
+namespace CSArp
 {
     public partial class ScannerForm : Form
     {

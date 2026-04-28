@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 
-namespace CSArp.Model
+namespace CSArp.Logic
 {
-    public sealed class IPV4Subnet
+    internal sealed class IPV4Subnet
     {
         private readonly uint _networkAddress;
         private readonly uint _broadcastAddress;

@@ -47,8 +47,4 @@
     </PackageReference>
   </ItemGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="CSArp.Tests" />
-  </ItemGroup>
-
 </Project>

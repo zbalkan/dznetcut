@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 
-namespace CSArp.Model
+namespace CSArp.Logic
 {
-    public sealed class EvidenceStore
+    internal sealed class EvidenceStore
     {
         private readonly object _sync = new object();
         private readonly Dictionary<IPAddress, HostRecord> _hostsByIp = new Dictionary<IPAddress, HostRecord>();

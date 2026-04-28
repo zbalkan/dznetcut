@@ -9,7 +9,7 @@ using PacketDotNet;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
-namespace CSArp.Model
+namespace CSArp.Logic
 {
     public class Spoofer
     {

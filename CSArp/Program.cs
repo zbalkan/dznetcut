@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Windows.Forms;
-using CSArp.View;
 
 namespace CSArp
 {

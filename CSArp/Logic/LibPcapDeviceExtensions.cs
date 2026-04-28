@@ -5,14 +5,14 @@ using System.Net;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
-namespace CSArp.Model
+namespace CSArp.Logic
 {
     public static class LibPcapDeviceExtensions
     {
         public static IReadOnlyList<LibPcapLiveDevice> GetWinPcapDevices() =>
             CaptureDeviceList.Instance.OfType<LibPcapLiveDevice>().ToArray();
 
-        public static IPV4Subnet ReadCurrentSubnet(this LibPcapLiveDevice device)
+        internal static IPV4Subnet ReadCurrentSubnet(this LibPcapLiveDevice device)
         {
             var (ipAddress, subnetMask) = ReadCurrentNetworkInfo(device);
             return new IPV4Subnet(ipAddress, subnetMask);

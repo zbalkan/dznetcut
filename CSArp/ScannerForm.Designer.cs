@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 
-namespace CSArp.View
+namespace CSArp
 {
     partial class ScannerForm
     {

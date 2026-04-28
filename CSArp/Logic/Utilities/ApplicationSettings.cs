@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using System.Windows.Forms;
 
-namespace CSArp.Model.Utilities
+namespace CSArp.Logic.Utilities
 {
     public static class ApplicationSettings
     {

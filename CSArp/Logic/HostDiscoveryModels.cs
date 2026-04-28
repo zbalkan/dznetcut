@@ -4,9 +4,9 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 
-namespace CSArp.Model
+namespace CSArp.Logic
 {
-    public enum DiscoveryMethod
+    internal enum DiscoveryMethod
     {
         ArpActive,
         ArpPassive,
@@ -19,7 +19,7 @@ namespace CSArp.Model
     }
 
     [Flags]
-    public enum HostFlags
+    internal enum HostFlags
     {
         None = 0,
         ConflictingIdentity = 1,
@@ -27,7 +27,7 @@ namespace CSArp.Model
         SilentHost = 4
     }
 
-    public sealed class HostnameCandidate
+    internal sealed class HostnameCandidate
     {
         public HostnameCandidate(string name, DiscoveryMethod sourceMethod, DateTime timestampUtc)
         {
@@ -41,7 +41,7 @@ namespace CSArp.Model
         public DateTime TimestampUtc { get; }
     }
 
-    public sealed class HostRecord
+    internal sealed class HostRecord
     {
         public HostRecord()
         {
@@ -68,7 +68,7 @@ namespace CSArp.Model
             .FirstOrDefault();
     }
 
-    public sealed class EvidenceRecord
+    internal sealed class EvidenceRecord
     {
         public EvidenceRecord(
             DateTime timestampUtc,
