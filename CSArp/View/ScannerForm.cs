@@ -1,121 +1,199 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Net;
+using System.Net.NetworkInformation;
 using System.Windows.Forms;
 using CSArp.Model;
+using CSArp.Model.Extensions;
 using CSArp.Model.Utilities;
+using SharpPcap;
+using SharpPcap.LibPcap;
 
 namespace CSArp.View
 {
-    public partial class ScannerForm : Form, IView
+    public partial class ScannerForm : Form
     {
-        private readonly Presenter.Presenter _controller;
+        private readonly Spoofer _arpSpoofer;
+        private readonly NetworkScanner _networkScanner;
+        private IPAddress gatewayIpAddress;
+        private PhysicalAddress gatewayPhysicalAddress;
+        private GatewayIPAddressInformation gatewayInfo;
+        private LibPcapLiveDevice selectedDevice;
+        private string selectedInterfaceFriendlyName;
+
         public ScannerForm()
         {
             InitializeComponent();
-            _controller = new Presenter.Presenter(this);
-            DebugOutput.Init(this);
+            ThreadBuffer.Init();
+            _arpSpoofer = new Spoofer();
+            _networkScanner = new NetworkScanner();
+            DebugOutput.Init(richTextBoxLog);
         }
 
-        #region IView members
-        public ListView ClientListView
+        public ListView ClientListView => clientListView;
+        public ToolStripStatusLabel ToolStripStatusScan => toolStripStatusScan;
+        public ToolStripProgressBar ToolStripProgressBarScan => toolStripProgressBarScan;
+
+        private string SelectedInterfaceFriendlyName
         {
             get
             {
-                return clientListView;
+                return selectedInterfaceFriendlyName;
             }
-        }
-        public ToolStripStatusLabel ToolStripStatus
-        {
-            get
+            set
             {
-                return toolStripStatus;
+                if (string.IsNullOrEmpty(value))
+                {
+                    throw new ArgumentNullException(nameof(value));
+                }
+
+                selectedInterfaceFriendlyName = value;
+                if (selectedDevice != null && selectedDevice.Opened)
+                {
+                    try
+                    {
+                        selectedDevice.StopCapture();
+                        selectedDevice.Close();
+                    }
+                    catch (PcapException ex)
+                    {
+                        DebugOutput.Print("Exception at StartForegroundScan while trying to capturedevice.StopCapture() or capturedevice.Close() [" + ex.Message + "]");
+                    }
+                }
+
+                selectedDevice = NetworkAdapterManager.WinPcapDevices.Where(dev => dev.Interface.FriendlyName != null)
+                                                                     .FirstOrDefault(dev => dev.Interface.FriendlyName.Equals(selectedInterfaceFriendlyName));
             }
         }
-        public ToolStripComboBox ToolStripComboBoxNetworkDeviceList
+
+        private void StartNetworkScan()
         {
-            get
+            if (string.IsNullOrEmpty(SelectedInterfaceFriendlyName))
             {
-                return toolStripComboBoxDevicelist;
+                _ = MessageBox.Show("Please select a network interface!", "Interface", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+                return;
             }
+
+            if (_networkScanner.IsScanning)
+            {
+                return;
+            }
+
+            _arpSpoofer.StopAll();
+            _ = BeginInvoke(new Action(() => { toolStripStatus.Text = "Ready"; }));
+            _networkScanner.StartScan(this, selectedDevice, gatewayIpAddress);
         }
-        public Form MainForm
+
+        private void StopNetworkScan()
         {
-            get
-            {
-                return this;
-            }
+            _networkScanner.StopScan();
+            StopCapture();
         }
-        public NotifyIcon NotifyIcon1
+
+        private void DisconnectSelectedClients()
         {
-            get
+            if (clientListView.SelectedItems.Count == 0)
             {
-                return notifyIcon1;
+                return;
             }
+
+            foreach (ListViewItem item in clientListView.Items)
+            {
+                if (item.SubItems[0].Text == gatewayIpAddress.ToString())
+                {
+                    gatewayPhysicalAddress = item.SubItems[1].Text.Parse();
+                }
+            }
+
+            if (gatewayPhysicalAddress == null)
+            {
+                _ = MessageBox.Show("Gateway Physical Address still undiscovered. Please wait and try again.", "Warning", MessageBoxButtons.OK);
+                return;
+            }
+
+            _ = Invoke(new Action(() => { toolStripStatus.Text = "Arpspoofing active..."; }));
+
+            var targetlist = new Dictionary<IPAddress, PhysicalAddress>();
+            var parseindex = 0;
+            foreach (ListViewItem listitem in clientListView.SelectedItems)
+            {
+                targetlist.Add(IPAddress.Parse(listitem.SubItems[0].Text), listitem.SubItems[1].Text.Parse());
+                _ = BeginInvoke(new Action(() =>
+                {
+                    clientListView.SelectedItems[parseindex++].SubItems[2].Text = "Off";
+                }));
+            }
+            _arpSpoofer.Start(targetlist, gatewayIpAddress, gatewayPhysicalAddress, selectedDevice);
         }
-        public ToolStripTextBox ToolStripTextBoxClientName
+
+        private void ReconnectClients()
         {
-            get
+            _arpSpoofer.StopAll();
+            foreach (ListViewItem entry in clientListView.Items)
             {
-                return toolStripTextBoxClientName;
+                entry.SubItems[2].Text = "On";
             }
+            toolStripStatus.Text = "Stopped";
         }
-        public ToolStripStatusLabel ToolStripStatusScan
+
+        private void GetGatewayInformation()
         {
-            get
-            {
-                return toolStripStatusScan;
-            }
+            gatewayInfo = NetworkInterface.GetAllNetworkInterfaces()
+                .FirstOrDefault(i => i.Name == SelectedInterfaceFriendlyName)?
+                .GetIPProperties()
+                .GatewayAddresses
+                .FirstOrDefault(g => g.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+            gatewayIpAddress = gatewayInfo?.Address;
         }
-        public ToolStripProgressBar ToolStripProgressBarScan
+
+        private void StartCapture()
         {
-            get
+            var conf = new DeviceConfiguration
             {
-                return toolStripProgressBarScan;
-            }
+                Mode = DeviceModes.Promiscuous,
+                ReadTimeout = 1000
+            };
+            selectedDevice.Open(conf);
         }
-        public ToolStripMenuItem ShowLogToolStripMenuItem
+
+        public void StopCapture()
         {
-            get
+            if (selectedDevice != null && selectedDevice.Opened)
             {
-                return showLogToolStripMenuItem;
+                try
+                {
+                    selectedDevice.StopCapture();
+                    selectedDevice.Close();
+                }
+                catch (Exception)
+                {
+                    // ignore exceptions on close
+                }
             }
         }
-        public RichTextBox LogRichTextBox
-        {
-            get
-            {
-                return richTextBoxLog;
-            }
-        }
-        public SaveFileDialog SaveFileDialogLog
-        {
-            get
-            {
-                return saveFileDialog1;
-            }
-        }
-        #endregion
+
         #region Event based methods
         private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(ToolStripComboBoxNetworkDeviceList.Text))
+            if (string.IsNullOrEmpty(toolStripComboBoxDevicelist.Text))
             {
                 _ = MessageBox.Show("Pick a device before a scan.");
             }
             else
             {
-                if (_controller.IsNetworkScanActive())
+                if (_networkScanner.IsScanning)
                 {
-                    ToolStripStatus.Text = "A scan is already running.";
+                    toolStripStatus.Text = "A scan is already running.";
                     return;
                 }
 
-                _controller.SelectedInterfaceFriendlyName = ToolStripComboBoxNetworkDeviceList.Text;
-                _controller.GetGatewayInformation();
-                _controller.StartCapture();
-                _controller.StartNetworkScan();
+                SelectedInterfaceFriendlyName = toolStripComboBoxDevicelist.Text;
+                GetGatewayInformation();
+                StartCapture();
+                StartNetworkScan();
             }
         }
 
@@ -137,20 +215,20 @@ namespace CSArp.View
 
         private void cutoffToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            _controller.DisconnectSelectedClients();
+            DisconnectSelectedClients();
         }
 
         private void reconnectToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            _controller.ReconnectClients();
+            ReconnectClients();
         }
 
         private void Form1_Resize(object sender, EventArgs e)
         {
-            if (MainForm.WindowState == FormWindowState.Minimized)
+            if (WindowState == FormWindowState.Minimized)
             {
-                NotifyIcon1.Visible = true;
-                MainForm.Hide();
+                notifyIcon1.Visible = true;
+                Hide();
             }
         }
 
@@ -158,38 +236,38 @@ namespace CSArp.View
         {
             if (e.KeyCode == Keys.Enter)
             {
-                if (ClientListView.SelectedItems.Count == 1)
+                if (clientListView.SelectedItems.Count == 1)
                 {
-                    ClientListView.SelectedItems[0].SubItems[3].Text = ToolStripTextBoxClientName.Text;
-                    ToolStripTextBoxClientName.Text = "";
+                    clientListView.SelectedItems[0].SubItems[3].Text = toolStripTextBoxClientName.Text;
+                    toolStripTextBoxClientName.Text = "";
                 }
             }
         }
 
         private void toolStripMenuItemMinimize_Click(object sender, EventArgs e)
         {
-            MainForm.WindowState = FormWindowState.Minimized;
+            WindowState = FormWindowState.Minimized;
         }
 
         private void toolStripMenuItemSaveSettings_Click(object sender, EventArgs e)
         {
-            if (ApplicationSettings.SaveSettings(ClientListView, ToolStripComboBoxNetworkDeviceList.Text))
+            if (ApplicationSettings.SaveSettings(clientListView, toolStripComboBoxDevicelist.Text))
             {
-                ToolStripStatus.Text = "Settings saved!";
+                toolStripStatus.Text = "Settings saved!";
             }
         }
 
         private void showLogToolStripMenuItem_CheckStateChanged(object sender, EventArgs e)
         {
-            if (ShowLogToolStripMenuItem.Checked == false)
+            if (showLogToolStripMenuItem.Checked == false)
             {
-                LogRichTextBox.Visible = false;
-                ClientListView.Height = MainForm.Height - 93;
+                richTextBoxLog.Visible = false;
+                clientListView.Height = Height - 93;
             }
             else
             {
-                LogRichTextBox.Visible = true;
-                ClientListView.Height = MainForm.Height - 184;
+                richTextBoxLog.Visible = true;
+                clientListView.Height = Height - 184;
             }
         }
 
@@ -200,13 +278,13 @@ namespace CSArp.View
 
         private void clearStripMenuItem_Click(object sender, EventArgs e)
         {
-            LogRichTextBox.Text = "";
+            richTextBoxLog.Text = "";
         }
         private void notifyIcon1_OnMouseClick(object sender, EventArgs e)
         {
-            NotifyIcon1.Visible = false;
-            MainForm.Show();
-            MainForm.WindowState = FormWindowState.Normal;
+            notifyIcon1.Visible = false;
+            Show();
+            WindowState = FormWindowState.Normal;
         }
         #endregion
 
@@ -218,7 +296,7 @@ namespace CSArp.View
         /// </summary>
         private void EnumerateNetworkAdaptersforMenu()
         {
-            ToolStripComboBoxNetworkDeviceList.Items.AddRange(EnumerateNetworkAdapters());
+            toolStripComboBoxDevicelist.Items.AddRange(EnumerateNetworkAdapters());
         }
 
         /// <summary>
@@ -226,22 +304,22 @@ namespace CSArp.View
         /// </summary>
         private void SetSavedInterface()
         {
-            ToolStripComboBoxNetworkDeviceList.Text = ApplicationSettings.GetSavedPreferredInterfaceFriendlyName() ?? string.Empty;
+            toolStripComboBoxDevicelist.Text = ApplicationSettings.GetSavedPreferredInterfaceFriendlyName() ?? string.Empty;
         }
 
         private void SaveLog()
         {
-            SaveFileDialogLog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
-            SaveFileDialogLog.InitialDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            SaveFileDialogLog.FileName = "CSArp-log";
-            SaveFileDialogLog.FileOk += (object sender, System.ComponentModel.CancelEventArgs e) =>
+            saveFileDialog1.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            saveFileDialog1.InitialDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            saveFileDialog1.FileName = "CSArp-log";
+            saveFileDialog1.FileOk += (object sender, System.ComponentModel.CancelEventArgs e) =>
             {
-                if (SaveFileDialogLog.FileName != "" && !File.Exists(SaveFileDialogLog.FileName))
+                if (saveFileDialog1.FileName != "" && !File.Exists(saveFileDialog1.FileName))
                 {
                     try
                     {
-                        File.WriteAllText(SaveFileDialogLog.FileName, LogRichTextBox.Text);
-                        DebugOutput.Print("Log saved to " + SaveFileDialogLog.FileName);
+                        File.WriteAllText(saveFileDialog1.FileName, richTextBoxLog.Text);
+                        DebugOutput.Print("Log saved to " + saveFileDialog1.FileName);
                     }
                     catch (Exception ex)
                     {
@@ -249,7 +327,7 @@ namespace CSArp.View
                     }
                 }
             };
-            _ = SaveFileDialogLog.ShowDialog();
+            _ = saveFileDialog1.ShowDialog();
         }
         private static string[] EnumerateNetworkAdapters()
         {
@@ -261,14 +339,14 @@ namespace CSArp.View
         private void ExitGracefully()
         {
             ThreadBuffer.Clear();
-            _controller.StopCapture();
+            StopCapture();
         }
         #endregion
 
         private void stopNetworkScanToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            _controller.StopNetworkScan();
-            ToolStripStatus.Text = "Scan stopped!";
+            StopNetworkScan();
+            toolStripStatus.Text = "Scan stopped!";
         }
     }
 }

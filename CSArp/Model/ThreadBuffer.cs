@@ -46,20 +46,6 @@ namespace CSArp.Model
             thread.Start();
         }
 
-        public static void Remove(Thread thread)
-        {
-            thread.Abort();
-            _ = buffer.Remove(thread);
-        }
-
-        public static void StopThreadByName(string threadName)
-        {
-            foreach (var t in buffer.Where(t => t.Name != null && t.Name.Equals(threadName)))
-            {
-                t.Abort();
-            }
-        }
-
         public static void StopThreadByPrefix(string prefix)
         {
             foreach (var t in buffer.Where(t => t.Name != null && t.Name.StartsWith(prefix)))

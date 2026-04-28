@@ -5,7 +5,6 @@ using PacketDotNet;
 using System.Net.NetworkInformation;
 using System.Threading;
 using SharpPcap.LibPcap;
-using CSArp.View;
 using CSArp.Model.Utilities;
 using CSArp.Model.Extensions;
 
@@ -30,14 +29,15 @@ namespace CSArp.Model
             foreach (var target in targetlist)
             {
                 var myipaddress = networkAdapter.ReadCurrentIpV4Address();
-                var arppacketforgatewayrequest = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), gatewayipaddress, networkAdapter.MacAddress, target.Key);
+                var arppacketforgatewayrequest = new ArpPacket(ArpOperation.Request, PhysicalAddress.Parse("00-00-00-00-00-00"), gatewayipaddress, networkAdapter.MacAddress, target.Key);
                 var ethernetpacketforgatewayrequest = new EthernetPacket(networkAdapter.MacAddress, gatewaymacaddress, EthernetType.Arp);
                 ethernetpacketforgatewayrequest.PayloadPacket = arppacketforgatewayrequest;
                 ThreadBuffer.Add(new Thread(() =>
                     SendSpoofingPacket(target.Key, target.Value, ethernetpacketforgatewayrequest, networkAdapter)
                   ));
                 engagedclientlist.Add(target.Key, target.Value);
-            };
+            }
+            ;
         }
         public void StopAll()
         {

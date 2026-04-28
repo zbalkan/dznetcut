@@ -1,33 +1,33 @@
 ﻿using System;
 using System.Diagnostics;
-using CSArp.View;
+using System.Windows.Forms;
 
 namespace CSArp.Model.Utilities
 {
     public static class DebugOutput
     {
-        private static IView _view;
+        private static RichTextBox _logTextBox;
 
-        public static void Init(IView view)
+        public static void Init(RichTextBox logTextBox)
         {
-            _view = view ?? throw new ArgumentNullException(nameof(view));
+            _logTextBox = logTextBox ?? throw new ArgumentNullException(nameof(logTextBox));
         }
 
         public static void Print(string output)
         {
-            if (_view == null)
+            if (_logTextBox == null)
             {
-                throw new ArgumentNullException(nameof(_view));
+                throw new ArgumentNullException(nameof(_logTextBox));
             }
 
             try
             {
                 var datetimenow = DateTime.Now.ToString();
-                _ = _view.LogRichTextBox.Invoke(new Action(() =>
+                _ = _logTextBox.Invoke(new Action(() =>
                   {
-                      _view.LogRichTextBox.AppendText(datetimenow + " : " + output + "\n");
-                      _view.LogRichTextBox.SelectionStart = _view.LogRichTextBox.TextLength;
-                      _view.LogRichTextBox.ScrollToCaret();
+                      _logTextBox.AppendText(datetimenow + " : " + output + "\n");
+                      _logTextBox.SelectionStart = _logTextBox.TextLength;
+                      _logTextBox.ScrollToCaret();
                   }));
 
                 Debug.Print(output);
