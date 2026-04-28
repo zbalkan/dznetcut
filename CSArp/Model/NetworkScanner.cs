@@ -79,8 +79,11 @@ namespace CSArp.Model
                     stopwatch.Start();
                     while ((networkAdapter.GetNextPacket(out var rawcapture) != GetPacketStatus.NoRemainingPackets) && stopwatch.ElapsedMilliseconds <= foregroundScanTimeout && scanning)
                     {
-                        var packet = Packet.ParsePacket(LinkLayers.Ethernet, rawcapture.Data.ToArray());
-                        var arppacket = packet.Extract<ArpPacket>();
+                        if (!TryExtractArpPacket(rawcapture, out var arppacket))
+                        {
+                            continue;
+                        }
+
                         if (!ArpTable.Instance.ContainsKey(arppacket.SenderProtocolAddress) && arppacket.SenderProtocolAddress.ToString() != "0.0.0.0" && subnet.Contains(arppacket.SenderProtocolAddress))
                         {
                             var isGateway = false;
@@ -219,8 +222,11 @@ namespace CSArp.Model
 
         private void ParseArpResponse(IView view, IPV4Subnet subnet, IPAddress gatewayIp, SharpPcap.PacketCapture e)
         {
-            var packet = Packet.ParsePacket(LinkLayers.Ethernet, e.Data.ToArray());
-            var arppacket = packet.Extract<ArpPacket>();
+            if (!TryExtractArpPacket(e, out var arppacket))
+            {
+                return;
+            }
+
             if (!ArpTable.Instance.ContainsKey(arppacket.SenderProtocolAddress) && arppacket.SenderProtocolAddress.ToString() != "0.0.0.0" && subnet.Contains(arppacket.SenderProtocolAddress) && scanning)
             {
                 var isGateway = false;
@@ -238,6 +244,33 @@ namespace CSArp.Model
                         : view.ClientListView.Items.Add(new ListViewItem(new string[] { arppacket.SenderProtocolAddress.ToString(), arppacket.SenderHardwareAddress.ToString("-"), "On", ApplicationSettings.GetSavedClientNameFromMAC(arppacket.SenderHardwareAddress.ToString("-")) }));
                 }));
                 _ = view.MainForm.Invoke(new Action(() => view.ToolStripStatusScan.Text = ArpTable.Instance.Count + " device(s) found"));
+            }
+        }
+
+        private static bool TryExtractArpPacket(PacketCapture e, out ArpPacket arppacket)
+        {
+            arppacket = null;
+            RawCapture rawcapture = e.GetPacket();
+            if (rawcapture is null || rawcapture.Data == null || rawcapture.Data.Length == 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                var packet = Packet.ParsePacket(LinkLayers.Ethernet, rawcapture.Data);
+                arppacket = packet.Extract<ArpPacket>();
+                return arppacket != null;
+            }
+            catch (IndexOutOfRangeException ex)
+            {
+                DebugOutput.Print("IndexOutOfRangeException while parsing a capture packet. Packet ignored. [" + ex.Message + "]");
+                return false;
+            }
+            catch (ArgumentException ex)
+            {
+                DebugOutput.Print("ArgumentException while parsing a capture packet. Packet ignored. [" + ex.Message + "]");
+                return false;
             }
         }
     }
