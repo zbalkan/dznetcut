@@ -2,7 +2,7 @@
 using System.Net;
 using SharpPcap.LibPcap;
 
-namespace CSArp.Model.Extensions
+namespace CSArp.Model
 {
     // Getting a readonly collection populated with addreses.
     // If it is an IPv4 interface, you can get IP Address, subnet mask etc.

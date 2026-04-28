@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Net.NetworkInformation;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Net.NetworkInformation;
 
-namespace CSArp.View
+namespace CSArp.Model
 {
     public static class PhysicalAddressExtensions
     {

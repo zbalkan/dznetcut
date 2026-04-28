@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,15 +26,10 @@ namespace CSArp.View
         public ScannerForm()
         {
             InitializeComponent();
-            ThreadBuffer.Init();
             _arpSpoofer = new Spoofer();
             _networkScanner = new NetworkScanner();
             DebugOutput.Init(richTextBoxLog);
         }
-
-        public ListView ClientListView => clientListView;
-        public ToolStripStatusLabel ToolStripStatusScan => toolStripStatusScan;
-        public ToolStripProgressBar ToolStripProgressBarScan => toolStripProgressBarScan;
 
         private string SelectedInterfaceFriendlyName {
             get {
@@ -79,8 +74,14 @@ namespace CSArp.View
             }
 
             _arpSpoofer.StopAll();
-            _ = BeginInvoke(new Action(() => { toolStripStatus.Text = "Ready"; }));
-            _networkScanner.StartScan(this, selectedDevice, gatewayIpAddress);
+            UpdateOnUiThread(() => toolStripStatus.Text = "Ready");
+            _networkScanner.StartScan(
+                selectedDevice,
+                gatewayIpAddress,
+                () => UpdateOnUiThread(() => clientListView.Items.Clear()),
+                AddClientToList,
+                status => UpdateOnUiThread(() => toolStripStatusScan.Text = status),
+                progress => UpdateOnUiThread(() => toolStripProgressBarScan.Value = progress));
         }
 
         private void StopNetworkScan()
@@ -110,16 +111,13 @@ namespace CSArp.View
                 return;
             }
 
-            _ = Invoke(new Action(() => { toolStripStatus.Text = "Arpspoofing active..."; }));
+            toolStripStatus.Text = "Arpspoofing active...";
 
             var targetlist = new Dictionary<IPAddress, PhysicalAddress>();
-            var parseindex = 0;
             foreach (ListViewItem listitem in clientListView.SelectedItems)
             {
                 targetlist.Add(IPAddress.Parse(listitem.SubItems[0].Text), listitem.SubItems[1].Text.Parse());
-                _ = BeginInvoke(new Action(() => {
-                    clientListView.SelectedItems[parseindex++].SubItems[2].Text = "Off";
-                }));
+                listitem.SubItems[2].Text = "Off";
             }
             _arpSpoofer.Start(targetlist, gatewayIpAddress, gatewayPhysicalAddress, selectedDevice);
         }
@@ -304,9 +302,32 @@ namespace CSArp.View
                                                        .Select(device => device.Interface.FriendlyName)
                                                        .ToArray();
 
+        private void AddClientToList(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway) => UpdateOnUiThread(() => {
+            var name = isGateway ? "GATEWAY" : ApplicationSettings.GetSavedClientNameFromMAC(macAddress.ToString("-"));
+            _ = clientListView.Items.Add(new ListViewItem(new[]
+            {
+                    ipAddress.ToString(),
+                    macAddress.ToString("-"),
+                    "On",
+                    name
+                }));
+        });
+
+        private void UpdateOnUiThread(Action updateAction)
+        {
+            if (InvokeRequired)
+            {
+                _ = BeginInvoke(updateAction);
+                return;
+            }
+
+            updateAction();
+        }
+
         private void ExitGracefully()
         {
-            ThreadBuffer.Clear();
+            _networkScanner.StopScan();
+            _arpSpoofer.StopAll();
             StopCapture();
         }
 
