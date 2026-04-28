@@ -7,10 +7,9 @@ namespace CSArp.Logic
 {
     internal sealed class EvidenceStore
     {
-        private readonly object _sync = new object();
-        private readonly Dictionary<IPAddress, HostRecord> _hostsByIp = new Dictionary<IPAddress, HostRecord>();
         private readonly HashSet<string> _evidenceFingerprints = new HashSet<string>(StringComparer.Ordinal);
-
+        private readonly Dictionary<IPAddress, HostRecord> _hostsByIp = new Dictionary<IPAddress, HostRecord>();
+        private readonly object _sync = new object();
         public bool AddEvidence(EvidenceRecord evidence, IPAddress gatewayIp)
         {
             if (evidence.SourceIp == null)
@@ -74,6 +73,14 @@ namespace CSArp.Logic
             }
         }
 
+        public IReadOnlyCollection<HostRecord> GetLowConfidenceHosts(int maxConfidence)
+        {
+            lock (_sync)
+            {
+                return _hostsByIp.Values.Where(h => h.ConfidenceScore <= maxConfidence).ToArray();
+            }
+        }
+
         public IReadOnlyCollection<HostRecord> Snapshot()
         {
             lock (_sync)
@@ -84,15 +91,6 @@ namespace CSArp.Logic
                     .ToArray();
             }
         }
-
-        public IReadOnlyCollection<HostRecord> GetLowConfidenceHosts(int maxConfidence)
-        {
-            lock (_sync)
-            {
-                return _hostsByIp.Values.Where(h => h.ConfidenceScore <= maxConfidence).ToArray();
-            }
-        }
-
         private static string BuildFingerprint(EvidenceRecord evidence)
             => string.Join("|",
                 evidence.SourceMethod,

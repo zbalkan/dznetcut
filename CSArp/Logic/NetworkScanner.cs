@@ -24,24 +24,23 @@ namespace CSArp.Logic
             ConfidenceScore = confidenceScore;
         }
 
-        public IPAddress IpAddress { get; }
-        public PhysicalAddress MacAddress { get; }
-        public bool IsGateway { get; }
         public int ConfidenceScore { get; }
+        public IPAddress IpAddress { get; }
+        public bool IsGateway { get; }
+        public PhysicalAddress MacAddress { get; }
     }
 
     public class NetworkScanner
     {
-        private readonly Action<string> _log;
-        private readonly object _stateLock = new object();
-        private readonly object _reportedHostsLock = new object();
-        private readonly HashSet<IPAddress> _reportedHostSet = new HashSet<IPAddress>();
         private readonly Dictionary<IPAddress, int> _lastReportedConfidenceByIp = new Dictionary<IPAddress, int>();
+        private readonly Action<string> _log;
         private readonly ScanPolicyConfig _policy;
-
+        private readonly HashSet<IPAddress> _reportedHostSet = new HashSet<IPAddress>();
+        private readonly object _reportedHostsLock = new object();
+        private readonly object _stateLock = new object();
+        private PacketArrivalEventHandler? _backgroundHandler;
         private CancellationTokenSource? _scanCts;
         private Task? _scanTask;
-        private PacketArrivalEventHandler? _backgroundHandler;
         private volatile bool _stopRequestedByUser;
 
         public NetworkScanner(Action<string>? log = null, ScanPolicyConfig? policy = null)
@@ -52,10 +51,8 @@ namespace CSArp.Logic
 
         public event Action<bool>? ScanStateChanged;
 
-        public bool IsScanning
-        {
-            get
-            {
+        public bool IsScanning {
+            get {
                 lock (_stateLock)
                 {
                     return _scanCts != null && !_scanCts.IsCancellationRequested;
@@ -105,24 +102,8 @@ namespace CSArp.Logic
 
             lock (_stateLock)
             {
-                _scanTask = Task.Run(() => RunScanOrchestration(networkAdapter, gatewayIp, token, clientProgress, statusProgress, scanProgress));
+                _scanTask = Task.Run(() => RunScanOrchestration(networkAdapter, gatewayIp, token, clientProgress, statusProgress!, scanProgress!));
             }
-        }
-
-
-        private int CalculateAdaptiveTimeoutSeconds(IPV4Subnet subnet)
-        {
-            var hostCount = subnet.EnumerateHosts().Count();
-            var averageJitterMs = (_policy.ArpMinJitterMs + _policy.ArpMaxJitterMs) / 2;
-            var minInterPacketDelayMs = Math.Max(1, 1000 / Math.Max(1, _policy.ArpPacketsPerSecondCap));
-            var arpSendMs = hostCount * (_policy.ArpRetries + 1) * (minInterPacketDelayMs + averageJitterMs);
-
-            var estimatedSeconds = (int)Math.Ceiling((arpSendMs / 1000.0)
-                + _policy.ArpForegroundCaptureSeconds
-                + _policy.PassiveHoldSeconds
-                + 8);
-
-            return Math.Max(_policy.TotalTimeoutSeconds, Math.Min(estimatedSeconds, 180));
         }
 
         public void StopScan()
@@ -132,7 +113,6 @@ namespace CSArp.Logic
             {
                 _scanCts?.Cancel();
             }
-
         }
 
         public void WaitForStop(TimeSpan timeout)
@@ -157,133 +137,134 @@ namespace CSArp.Logic
             }
         }
 
-        private async Task RunScanOrchestration(
-            LibPcapLiveDevice networkAdapter,
-            IPAddress gatewayIp,
-            CancellationToken cancellationToken,
-            IProgress<ClientDiscoveredEventArgs> clientProgress,
-            IProgress<string> statusProgress,
-            IProgress<int> scanProgress)
+        private static string BuildCaptureFilter()
+            => "arp or icmp or (udp and (port 5353 or port 5355 or port 137 or port 1900))";
+
+        private static async Task RunUdpDiscoveryPhase(CancellationToken cancellationToken)
         {
-            var evidenceStore = new EvidenceStore();
-            var subnet = networkAdapter.ReadCurrentSubnet();
-            var sourceAddress = networkAdapter.ReadCurrentIpV4Address();
+            using var udp = new UdpClient { EnableBroadcast = true };
 
-            networkAdapter.Filter = BuildCaptureFilter();
-            StartPassiveCollector(networkAdapter, subnet, gatewayIp, evidenceStore, clientProgress, statusProgress);
+            var ssdpRequest = Encoding.ASCII.GetBytes(
+                "M-SEARCH * HTTP/1.1\r\nHOST:239.255.255.250:1900\r\nMAN:\"ssdp:discover\"\r\nMX:1\r\nST:ssdp:all\r\n\r\n");
+            await udp.SendAsync(ssdpRequest, ssdpRequest.Length, new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900)).ConfigureAwait(false);
 
+            var llmnrPayload = new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+            await udp.SendAsync(llmnrPayload, llmnrPayload.Length, new IPEndPoint(IPAddress.Parse("224.0.0.252"), 5355)).ConfigureAwait(false);
+
+            await Task.Delay(400, cancellationToken).ConfigureAwait(false);
+        }
+
+        private static void SendArpRequest(LibPcapLiveDevice networkAdapter, IPAddress targetIpAddress)
+        {
+            var arpRequestPacket = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), targetIpAddress, networkAdapter.MacAddress, networkAdapter.ReadCurrentIpV4Address());
+            var ethernetPacket = new EthernetPacket(networkAdapter.MacAddress, "FF-FF-FF-FF-FF-FF".Parse(), EthernetType.Arp)
+            {
+                PayloadPacket = arpRequestPacket
+            };
+
+            networkAdapter.SendPacket(ethernetPacket);
+        }
+
+        private static string? TryExtractAsciiToken(byte[] bytes)
+        {
             try
             {
-                _log("Phase 1/6: ARP active sweep started");
-                statusProgress?.Report("Phase 1/6: ARP sweep");
-                await RunArpActiveSweep(networkAdapter, subnet, gatewayIp, sourceAddress, evidenceStore, cancellationToken, clientProgress, statusProgress).ConfigureAwait(false);
-                scanProgress?.Report(35);
-
-                var parallelPhases = new List<Task>();
-
-                if (_policy.IcmpEnabled)
-                {
-                    _log("Phase 2/6: ICMP liveness started");
-                    parallelPhases.Add(RunIcmpPhase(subnet, sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress));
-                }
-
-                if (_policy.TcpSynEnabled)
-                {
-                    _log("Phase 3/6: TCP spot checks started");
-                    parallelPhases.Add(RunTcpSynPhase(sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress));
-                }
-
-                if (_policy.UdpDiscoveryEnabled)
-                {
-                    _log("Phase 4/6: UDP discovery started");
-                    parallelPhases.Add(RunUdpDiscoveryPhase(cancellationToken));
-                }
-
-                if (parallelPhases.Count > 0)
-                {
-                    statusProgress?.Report("Phase 2-4/6: Active probes running in parallel");
-                    await Task.WhenAll(parallelPhases).ConfigureAwait(false);
-                }
-
-                scanProgress?.Report(85);
-
-                _log("Phase 5/6: Passive hold started");
-                statusProgress?.Report("Phase 5/6: Passive hold");
-                await Task.Delay(TimeSpan.FromSeconds(_policy.PassiveHoldSeconds), cancellationToken).ConfigureAwait(false);
-                scanProgress?.Report(95);
-
-                _log("Phase 6/6: Finalization started");
-                statusProgress?.Report("Phase 6/6: Finalizing");
-                PublishFinalSnapshot(evidenceStore, clientProgress, gatewayIp);
-                scanProgress?.Report(100);
-                var finalCount = evidenceStore.Snapshot().Count;
-                _log($"Scan finished successfully. {finalCount} host(s) discovered.");
-                statusProgress?.Report($"Scan completed: {finalCount} device(s) found");
+                var text = Encoding.ASCII.GetString(bytes);
+                var token = text
+                    .Split(new[] { '\0', '\r', '\n', ' ', '\t', ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                    .FirstOrDefault(segment => segment.Length > 2 && segment.All(ch => ch >= 32 && ch <= 126));
+                return token;
             }
-            catch (OperationCanceledException)
+            catch
             {
-                if (_stopRequestedByUser)
-                {
-                    _log("Scan canceled by user request.");
-                    statusProgress?.Report("Scan canceled");
-                }
-                else
-                {
-                    _log("Scan timeout budget reached. Publishing partial results.");
-                    PublishFinalSnapshot(evidenceStore, clientProgress, gatewayIp);
-                    var partialCount = evidenceStore.Snapshot().Count;
-                    statusProgress?.Report($"Scan timeout: {partialCount} device(s) found");
-                    scanProgress?.Report(100);
-                }
-            }
-            catch (PcapException ex)
-            {
-                _log($"PcapException during scan [{ex.Message}]");
-                statusProgress?.Report("Refresh for scan");
-            }
-            catch (Exception ex)
-            {
-                _log($"Unhandled scan exception [{ex.Message}]");
-            }
-            finally
-            {
-                SafeStopCapture(networkAdapter);
-                lock (_stateLock)
-                {
-                    _scanCts?.Dispose();
-                    _scanCts = null;
-                    _scanTask = null;
-                }
-                ScanStateChanged?.Invoke(false);
+                return null;
             }
         }
 
-        private void StartPassiveCollector(
-            LibPcapLiveDevice networkAdapter,
-            IPV4Subnet subnet,
-            IPAddress gatewayIp,
+        private static bool TryGetHostByIp(EvidenceStore evidenceStore, IPAddress? ipAddress, out HostRecord? host)
+        {
+            host = ipAddress == null
+                ? null
+                : evidenceStore.Snapshot().FirstOrDefault(h => Equals(h.IPv4Address, ipAddress));
+            return host != null;
+        }
+
+        private void AddEvidenceAndReport(
             EvidenceStore evidenceStore,
+            EvidenceRecord evidence,
+            IPAddress gatewayIp,
             IProgress<ClientDiscoveredEventArgs> clientProgress,
             IProgress<string> statusProgress)
         {
-            _backgroundHandler = (sender, e) =>
+            if (!evidenceStore.AddEvidence(evidence, gatewayIp))
             {
-                if (TryProcessPassivePacket(e.GetPacket(), subnet, gatewayIp, evidenceStore, out var updatedHost))
-                {
-                    ReportDiscoveredHost(updatedHost!, clientProgress, statusProgress, evidenceStore.Snapshot().Count);
-                }
-            };
+                return;
+            }
 
-            try
+            if (!TryGetHostByIp(evidenceStore, evidence.SourceIp, out var host))
             {
-                networkAdapter.OnPacketArrival += _backgroundHandler;
-                networkAdapter.StartCapture();
-                _log($"Passive collector started with filter: {networkAdapter.Filter}");
+                return;
             }
-            catch (Exception ex)
+
+            ReportDiscoveredHost(host!, clientProgress, statusProgress, evidenceStore.Snapshot().Count);
+        }
+
+        private int CalculateAdaptiveTimeoutSeconds(IPV4Subnet subnet)
+        {
+            var hostCount = subnet.EnumerateHosts().Count();
+            var averageJitterMs = (_policy.ArpMinJitterMs + _policy.ArpMaxJitterMs) / 2;
+            var minInterPacketDelayMs = Math.Max(1, 1000 / Math.Max(1, _policy.ArpPacketsPerSecondCap));
+            var arpSendMs = hostCount * (_policy.ArpRetries + 1) * (minInterPacketDelayMs + averageJitterMs);
+
+            var estimatedSeconds = (int)Math.Ceiling((arpSendMs / 1000.0)
+                + _policy.ArpForegroundCaptureSeconds
+                + _policy.PassiveHoldSeconds
+                + 8);
+
+            return Math.Max(_policy.TotalTimeoutSeconds, Math.Min(estimatedSeconds, 180));
+        }
+        private void ClearReportedHosts()
+        {
+            lock (_reportedHostsLock)
             {
-                _log($"Exception while starting passive collector [{ex.Message}]");
+                _reportedHostSet.Clear();
+                _lastReportedConfidenceByIp.Clear();
             }
+        }
+
+        private void PublishFinalSnapshot(EvidenceStore evidenceStore, IProgress<ClientDiscoveredEventArgs> clientProgress, IPAddress gatewayIp)
+        {
+            foreach (var host in evidenceStore.Snapshot())
+            {
+                if (host.IPv4Address == null || host.MacAddress == null)
+                {
+                    continue;
+                }
+
+                clientProgress?.Report(new ClientDiscoveredEventArgs(host.IPv4Address, host.MacAddress, host.IsGatewayCandidate || host.IPv4Address.Equals(gatewayIp), host.ConfidenceScore));
+            }
+        }
+
+        private void ReportDiscoveredHost(
+            HostRecord host,
+            IProgress<ClientDiscoveredEventArgs> clientProgress,
+            IProgress<string> statusProgress,
+            int currentCount)
+        {
+            if (host.IPv4Address == null || host.MacAddress == null)
+            {
+                return;
+            }
+
+            var isNewHost = TryRegisterHostReport(host.IPv4Address);
+            if (!ShouldEmitHostUpdate(host.IPv4Address, host.ConfidenceScore, isNewHost))
+            {
+                return;
+            }
+
+            clientProgress?.Report(new ClientDiscoveredEventArgs(host.IPv4Address, host.MacAddress, host.IsGatewayCandidate, host.ConfidenceScore));
+            _log($"Host discovered {host.IPv4Address} @ {host.MacAddress.ToString("-")} confidence={host.ConfidenceScore} methods=[{string.Join(",", host.DiscoveryMethods.OrderBy(m => m.ToString()))}]");
+            statusProgress?.Report($"{currentCount} device(s) found");
         }
 
         private async Task RunArpActiveSweep(
@@ -384,6 +365,107 @@ namespace CSArp.Logic
             }
         }
 
+        private async Task RunScanOrchestration(
+            LibPcapLiveDevice networkAdapter,
+            IPAddress gatewayIp,
+            CancellationToken cancellationToken,
+            IProgress<ClientDiscoveredEventArgs> clientProgress,
+            IProgress<string> statusProgress,
+            IProgress<int> scanProgress)
+        {
+            var evidenceStore = new EvidenceStore();
+            var subnet = networkAdapter.ReadCurrentSubnet();
+            var sourceAddress = networkAdapter.ReadCurrentIpV4Address();
+
+            networkAdapter.Filter = BuildCaptureFilter();
+            StartPassiveCollector(networkAdapter, subnet, gatewayIp, evidenceStore, clientProgress, statusProgress);
+
+            try
+            {
+                _log("Phase 1/6: ARP active sweep started");
+                statusProgress?.Report("Phase 1/6: ARP sweep");
+                await RunArpActiveSweep(networkAdapter, subnet, gatewayIp, sourceAddress, evidenceStore, cancellationToken, clientProgress, statusProgress!).ConfigureAwait(false);
+                scanProgress?.Report(35);
+
+                var parallelPhases = new List<Task>();
+
+                if (_policy.IcmpEnabled)
+                {
+                    _log("Phase 2/6: ICMP liveness started");
+                    parallelPhases.Add(RunIcmpPhase(subnet, sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress!));
+                }
+
+                if (_policy.TcpSynEnabled)
+                {
+                    _log("Phase 3/6: TCP spot checks started");
+                    parallelPhases.Add(RunTcpSynPhase(sourceAddress, gatewayIp, evidenceStore, cancellationToken, clientProgress, statusProgress!));
+                }
+
+                if (_policy.UdpDiscoveryEnabled)
+                {
+                    _log("Phase 4/6: UDP discovery started");
+                    parallelPhases.Add(RunUdpDiscoveryPhase(cancellationToken));
+                }
+
+                if (parallelPhases.Count > 0)
+                {
+                    statusProgress?.Report("Phase 2-4/6: Active probes running in parallel");
+                    await Task.WhenAll(parallelPhases).ConfigureAwait(false);
+                }
+
+                scanProgress?.Report(85);
+
+                _log("Phase 5/6: Passive hold started");
+                statusProgress?.Report("Phase 5/6: Passive hold");
+                await Task.Delay(TimeSpan.FromSeconds(_policy.PassiveHoldSeconds), cancellationToken).ConfigureAwait(false);
+                scanProgress?.Report(95);
+
+                _log("Phase 6/6: Finalization started");
+                statusProgress?.Report("Phase 6/6: Finalizing");
+                PublishFinalSnapshot(evidenceStore, clientProgress, gatewayIp);
+                scanProgress?.Report(100);
+                var finalCount = evidenceStore.Snapshot().Count;
+                _log($"Scan finished successfully. {finalCount} host(s) discovered.");
+                statusProgress?.Report($"Scan completed: {finalCount} device(s) found");
+            }
+            catch (OperationCanceledException)
+            {
+                if (_stopRequestedByUser)
+                {
+                    _log("Scan canceled by user request.");
+                    statusProgress?.Report("Scan canceled");
+                }
+                else
+                {
+                    _log("Scan timeout budget reached. Publishing partial results.");
+                    PublishFinalSnapshot(evidenceStore, clientProgress, gatewayIp);
+                    var partialCount = evidenceStore.Snapshot().Count;
+                    statusProgress?.Report($"Scan timeout: {partialCount} device(s) found");
+                    scanProgress?.Report(100);
+                }
+            }
+            catch (PcapException ex)
+            {
+                _log($"PcapException during scan [{ex.Message}]");
+                statusProgress?.Report("Refresh for scan");
+            }
+            catch (Exception ex)
+            {
+                _log($"Unhandled scan exception [{ex.Message}]");
+            }
+            finally
+            {
+                SafeStopCapture(networkAdapter);
+                lock (_stateLock)
+                {
+                    _scanCts?.Dispose();
+                    _scanCts = null;
+                    _scanTask = null;
+                }
+                ScanStateChanged?.Invoke(false);
+            }
+        }
+
         private async Task RunTcpSynPhase(
             IPAddress sourceAddress,
             IPAddress gatewayIp,
@@ -440,73 +522,24 @@ namespace CSArp.Logic
             }
         }
 
-        private static async Task RunUdpDiscoveryPhase(CancellationToken cancellationToken)
+        private void SafeStopCapture(LibPcapLiveDevice networkAdapter)
         {
-            using var udp = new UdpClient { EnableBroadcast = true };
-
-            var ssdpRequest = Encoding.ASCII.GetBytes(
-                "M-SEARCH * HTTP/1.1\r\nHOST:239.255.255.250:1900\r\nMAN:\"ssdp:discover\"\r\nMX:1\r\nST:ssdp:all\r\n\r\n");
-            await udp.SendAsync(ssdpRequest, ssdpRequest.Length, new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900)).ConfigureAwait(false);
-
-            var llmnrPayload = new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-            await udp.SendAsync(llmnrPayload, llmnrPayload.Length, new IPEndPoint(IPAddress.Parse("224.0.0.252"), 5355)).ConfigureAwait(false);
-
-            await Task.Delay(400, cancellationToken).ConfigureAwait(false);
-        }
-
-        private void PublishFinalSnapshot(EvidenceStore evidenceStore, IProgress<ClientDiscoveredEventArgs> clientProgress, IPAddress gatewayIp)
-        {
-            foreach (var host in evidenceStore.Snapshot())
+            try
             {
-                if (host.IPv4Address == null || host.MacAddress == null)
+                if (_backgroundHandler != null)
                 {
-                    continue;
+                    networkAdapter.OnPacketArrival -= _backgroundHandler;
                 }
 
-                clientProgress?.Report(new ClientDiscoveredEventArgs(host.IPv4Address, host.MacAddress, host.IsGatewayCandidate || host.IPv4Address.Equals(gatewayIp), host.ConfidenceScore));
+                networkAdapter.StopCapture();
             }
-        }
-
-        private void AddEvidenceAndReport(
-            EvidenceStore evidenceStore,
-            EvidenceRecord evidence,
-            IPAddress gatewayIp,
-            IProgress<ClientDiscoveredEventArgs> clientProgress,
-            IProgress<string> statusProgress)
-        {
-            if (!evidenceStore.AddEvidence(evidence, gatewayIp))
+            catch (Exception ex)
             {
-                return;
+                _log($"Exception while stopping capture [{ex.Message}]");
             }
-
-            if (!TryGetHostByIp(evidenceStore, evidence.SourceIp, out var host))
+            finally
             {
-                return;
-            }
-
-            ReportDiscoveredHost(host!, clientProgress, statusProgress, evidenceStore.Snapshot().Count);
-        }
-
-
-        private void ClearReportedHosts()
-        {
-            lock (_reportedHostsLock)
-            {
-                _reportedHostSet.Clear();
-                _lastReportedConfidenceByIp.Clear();
-            }
-        }
-
-        private bool TryRegisterHostReport(IPAddress ipAddress)
-        {
-            lock (_reportedHostsLock)
-            {
-                if (!_reportedHostSet.Add(ipAddress))
-                {
-                    return false;
-                }
-
-                return true;
+                _backgroundHandler = null;
             }
         }
 
@@ -541,28 +574,32 @@ namespace CSArp.Logic
             }
         }
 
-        private void ReportDiscoveredHost(
-            HostRecord host,
+        private void StartPassiveCollector(
+                                    LibPcapLiveDevice networkAdapter,
+            IPV4Subnet subnet,
+            IPAddress gatewayIp,
+            EvidenceStore evidenceStore,
             IProgress<ClientDiscoveredEventArgs> clientProgress,
-            IProgress<string> statusProgress,
-            int currentCount)
+            IProgress<string> statusProgress)
         {
-            if (host.IPv4Address == null || host.MacAddress == null)
-            {
-                return;
-            }
+            _backgroundHandler = (sender, e) => {
+                if (TryProcessPassivePacket(e.GetPacket(), subnet, gatewayIp, evidenceStore, out var updatedHost))
+                {
+                    ReportDiscoveredHost(updatedHost!, clientProgress, statusProgress, evidenceStore.Snapshot().Count);
+                }
+            };
 
-            var isNewHost = TryRegisterHostReport(host.IPv4Address);
-            if (!ShouldEmitHostUpdate(host.IPv4Address, host.ConfidenceScore, isNewHost))
+            try
             {
-                return;
+                networkAdapter.OnPacketArrival += _backgroundHandler;
+                networkAdapter.StartCapture();
+                _log($"Passive collector started with filter: {networkAdapter.Filter}");
             }
-
-            clientProgress?.Report(new ClientDiscoveredEventArgs(host.IPv4Address, host.MacAddress, host.IsGatewayCandidate, host.ConfidenceScore));
-            _log($"Host discovered {host.IPv4Address} @ {host.MacAddress.ToString("-")} confidence={host.ConfidenceScore} methods=[{string.Join(",", host.DiscoveryMethods.OrderBy(m => m.ToString()))}]");
-            statusProgress?.Report($"{currentCount} device(s) found");
+            catch (Exception ex)
+            {
+                _log($"Exception while starting passive collector [{ex.Message}]");
+            }
         }
-
         private bool TryProcessPassivePacket(
             RawCapture rawCapture,
             IPV4Subnet subnet,
@@ -638,63 +675,17 @@ namespace CSArp.Logic
             }
         }
 
-        private static string BuildCaptureFilter()
-            => "arp or icmp or (udp and (port 5353 or port 5355 or port 137 or port 1900))";
-
-        private void SafeStopCapture(LibPcapLiveDevice networkAdapter)
+        private bool TryRegisterHostReport(IPAddress ipAddress)
         {
-            try
+            lock (_reportedHostsLock)
             {
-                if (_backgroundHandler != null)
+                if (!_reportedHostSet.Add(ipAddress))
                 {
-                    networkAdapter.OnPacketArrival -= _backgroundHandler;
+                    return false;
                 }
 
-                networkAdapter.StopCapture();
+                return true;
             }
-            catch (Exception ex)
-            {
-                _log($"Exception while stopping capture [{ex.Message}]");
-            }
-            finally
-            {
-                _backgroundHandler = null;
-            }
-        }
-
-        private static void SendArpRequest(LibPcapLiveDevice networkAdapter, IPAddress targetIpAddress)
-        {
-            var arpRequestPacket = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), targetIpAddress, networkAdapter.MacAddress, networkAdapter.ReadCurrentIpV4Address());
-            var ethernetPacket = new EthernetPacket(networkAdapter.MacAddress, "FF-FF-FF-FF-FF-FF".Parse(), EthernetType.Arp)
-            {
-                PayloadPacket = arpRequestPacket
-            };
-
-            networkAdapter.SendPacket(ethernetPacket);
-        }
-
-        private static string? TryExtractAsciiToken(byte[] bytes)
-        {
-            try
-            {
-                var text = Encoding.ASCII.GetString(bytes);
-                var token = text
-                    .Split(new[] { '\0', '\r', '\n', ' ', '\t', ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
-                    .FirstOrDefault(segment => segment.Length > 2 && segment.All(ch => ch >= 32 && ch <= 126));
-                return token;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static bool TryGetHostByIp(EvidenceStore evidenceStore, IPAddress? ipAddress, out HostRecord? host)
-        {
-            host = ipAddress == null
-                ? null
-                : evidenceStore.Snapshot().FirstOrDefault(h => Equals(h.IPv4Address, ipAddress));
-            return host != null;
         }
     }
 }

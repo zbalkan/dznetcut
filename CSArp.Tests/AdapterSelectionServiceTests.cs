@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using CSArp.Logic;
@@ -32,7 +30,7 @@ namespace CSArp.Tests
 
             var options = AdapterSelectionService.BuildOptions(devices, interfaces);
 
-            Assert.AreEqual(1, options.Count);
+            Assert.HasCount(1, options);
             Assert.AreEqual("dev-1", options[0].DeviceId);
             Assert.AreEqual("if-1", options[0].InterfaceId);
             Assert.AreEqual(IPAddress.Parse("192.168.1.1"), options[0].GatewayIpAddress);
@@ -50,22 +48,8 @@ namespace CSArp.Tests
 
             var filtered = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters: false);
 
-            Assert.AreEqual(1, filtered.Count);
+            Assert.HasCount(1, filtered);
             Assert.AreEqual("phy", filtered[0].DeviceId);
-        }
-
-        [TestMethod]
-        public void FilterOptions_WithoutPhysicalAdapters_ReturnsEmptyByDefault()
-        {
-            var options = new[]
-            {
-                new AdapterSelectionOptionModel("virt-a", "Virtual-A [10.0.0.2]", "if-1", IPAddress.Parse("10.0.0.1"), false),
-                new AdapterSelectionOptionModel("virt-b", "Virtual-B [10.0.0.3]", "if-2", IPAddress.Parse("10.0.0.1"), false)
-            };
-
-            var filtered = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters: false);
-
-            Assert.AreEqual(0, filtered.Count);
         }
 
         [TestMethod]
@@ -79,9 +63,22 @@ namespace CSArp.Tests
 
             var filtered = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters: true);
 
-            Assert.AreEqual(2, filtered.Count);
+            Assert.HasCount(2, filtered);
         }
 
+        [TestMethod]
+        public void FilterOptions_WithoutPhysicalAdapters_ReturnsEmptyByDefault()
+        {
+            var options = new[]
+            {
+                new AdapterSelectionOptionModel("virt-a", "Virtual-A [10.0.0.2]", "if-1", IPAddress.Parse("10.0.0.1"), false),
+                new AdapterSelectionOptionModel("virt-b", "Virtual-B [10.0.0.3]", "if-2", IPAddress.Parse("10.0.0.1"), false)
+            };
+
+            var filtered = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters: false);
+
+            Assert.IsEmpty(filtered);
+        }
         [TestMethod]
         public void IsLikelyPhysicalPnpDeviceId_RecognizesPhysicalBusPrefixes()
         {

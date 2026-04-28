@@ -27,45 +27,34 @@ namespace CSArp.Logic
         SilentHost = 4
     }
 
-    internal sealed class HostnameCandidate
+    public sealed class ScanPolicyConfig
     {
-        public HostnameCandidate(string name, DiscoveryMethod sourceMethod, DateTime timestampUtc)
+        public static ScanPolicyConfig Aggressive => new ScanPolicyConfig
         {
-            Name = name;
-            SourceMethod = sourceMethod;
-            TimestampUtc = timestampUtc;
-        }
+            UdpDiscoveryEnabled = true,
+            TcpSynEnabled = true
+        };
 
-        public string Name { get; }
-        public DiscoveryMethod SourceMethod { get; }
-        public DateTime TimestampUtc { get; }
-    }
-
-    internal sealed class HostRecord
-    {
-        public HostRecord()
+        public static ScanPolicyConfig Balanced => new ScanPolicyConfig
         {
-            DiscoveryMethods = new HashSet<DiscoveryMethod>();
-            HostnameCandidates = new List<HostnameCandidate>();
-            OpenPortsHints = new HashSet<int>();
-            Flags = HostFlags.None;
-        }
+            UdpDiscoveryEnabled = true,
+            TcpSynEnabled = false
+        };
 
-        public IPAddress? IPv4Address { get; set; }
-        public PhysicalAddress? MacAddress { get; set; }
-        public DateTime FirstSeenUtc { get; set; }
-        public DateTime LastSeenUtc { get; set; }
-        public HashSet<DiscoveryMethod> DiscoveryMethods { get; }
-        public int ConfidenceScore { get; set; }
-        public bool IsGatewayCandidate { get; set; }
-        public List<HostnameCandidate> HostnameCandidates { get; }
-        public HashSet<int> OpenPortsHints { get; }
-        public HostFlags Flags { get; set; }
-
-        public string? PreferredHostname => HostnameCandidates
-            .OrderByDescending(c => c.TimestampUtc)
-            .Select(c => c.Name)
-            .FirstOrDefault();
+        public static ScanPolicyConfig Conservative => new ScanPolicyConfig();
+        public int ArpForegroundCaptureSeconds { get; set; } = 10;
+        public int ArpMaxJitterMs { get; set; } = 40;
+        public int ArpMinJitterMs { get; set; } = 10;
+        public int ArpPacketsPerSecondCap { get; set; } = 450;
+        public int ArpRetries { get; set; } = 2;
+        public bool IcmpEnabled { get; set; } = true;
+        public int IcmpRetries { get; set; } = 1;
+        public int IcmpTimeoutMs { get; set; } = 400;
+        public int PassiveHoldSeconds { get; set; } = 12;
+        public bool TcpSynEnabled { get; set; }
+        public int[] TcpSynPorts { get; set; } = { 443, 80, 22, 3389 };
+        public int TotalTimeoutSeconds { get; set; } = 30;
+        public bool UdpDiscoveryEnabled { get; set; } = true;
     }
 
     internal sealed class EvidenceRecord
@@ -92,45 +81,54 @@ namespace CSArp.Logic
             HostnameHint = hostnameHint;
         }
 
-        public DateTime TimestampUtc { get; }
-        public DiscoveryMethod SourceMethod { get; }
-        public IPAddress? SourceIp { get; }
         public IPAddress? DestinationIp { get; }
-        public PhysicalAddress? SourceMac { get; }
-        public string PayloadSummary { get; }
-        public int QualityWeight { get; }
-        public int? PortHint { get; }
         public string? HostnameHint { get; }
+        public string PayloadSummary { get; }
+        public int? PortHint { get; }
+        public int QualityWeight { get; }
+        public IPAddress? SourceIp { get; }
+        public PhysicalAddress? SourceMac { get; }
+        public DiscoveryMethod SourceMethod { get; }
+        public DateTime TimestampUtc { get; }
     }
 
-    public sealed class ScanPolicyConfig
+    internal sealed class HostnameCandidate
     {
-        public static ScanPolicyConfig Conservative => new ScanPolicyConfig();
-
-        public static ScanPolicyConfig Balanced => new ScanPolicyConfig
+        public HostnameCandidate(string name, DiscoveryMethod sourceMethod, DateTime timestampUtc)
         {
-            UdpDiscoveryEnabled = true,
-            TcpSynEnabled = false
-        };
+            Name = name;
+            SourceMethod = sourceMethod;
+            TimestampUtc = timestampUtc;
+        }
 
-        public static ScanPolicyConfig Aggressive => new ScanPolicyConfig
+        public string Name { get; }
+        public DiscoveryMethod SourceMethod { get; }
+        public DateTime TimestampUtc { get; }
+    }
+
+    internal sealed class HostRecord
+    {
+        public HostRecord()
         {
-            UdpDiscoveryEnabled = true,
-            TcpSynEnabled = true
-        };
+            DiscoveryMethods = new HashSet<DiscoveryMethod>();
+            HostnameCandidates = new List<HostnameCandidate>();
+            OpenPortsHints = new HashSet<int>();
+            Flags = HostFlags.None;
+        }
 
-        public int TotalTimeoutSeconds { get; set; } = 30;
-        public int ArpRetries { get; set; } = 2;
-        public int ArpMinJitterMs { get; set; } = 10;
-        public int ArpMaxJitterMs { get; set; } = 40;
-        public int ArpForegroundCaptureSeconds { get; set; } = 10;
-        public int ArpPacketsPerSecondCap { get; set; } = 450;
-        public bool IcmpEnabled { get; set; } = true;
-        public int IcmpTimeoutMs { get; set; } = 400;
-        public int IcmpRetries { get; set; } = 1;
-        public bool TcpSynEnabled { get; set; }
-        public int[] TcpSynPorts { get; set; } = { 443, 80, 22, 3389 };
-        public bool UdpDiscoveryEnabled { get; set; } = true;
-        public int PassiveHoldSeconds { get; set; } = 12;
+        public int ConfidenceScore { get; set; }
+        public HashSet<DiscoveryMethod> DiscoveryMethods { get; }
+        public DateTime FirstSeenUtc { get; set; }
+        public HostFlags Flags { get; set; }
+        public List<HostnameCandidate> HostnameCandidates { get; }
+        public IPAddress? IPv4Address { get; set; }
+        public bool IsGatewayCandidate { get; set; }
+        public DateTime LastSeenUtc { get; set; }
+        public PhysicalAddress? MacAddress { get; set; }
+        public HashSet<int> OpenPortsHints { get; }
+        public string? PreferredHostname => HostnameCandidates
+            .OrderByDescending(c => c.TimestampUtc)
+            .Select(c => c.Name)
+            .FirstOrDefault();
     }
 }

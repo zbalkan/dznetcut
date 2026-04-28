@@ -13,25 +13,6 @@ namespace CSArp.Tests
         private string _originalDirectory = string.Empty;
         private string _tempDirectory = string.Empty;
 
-        [TestInitialize]
-        public void TestInitialize()
-        {
-            _originalDirectory = Environment.CurrentDirectory;
-            _tempDirectory = Path.Combine(Path.GetTempPath(), "csarp-tests", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(_tempDirectory);
-            Environment.CurrentDirectory = _tempDirectory;
-        }
-
-        [TestCleanup]
-        public void TestCleanup()
-        {
-            Environment.CurrentDirectory = _originalDirectory;
-            if (Directory.Exists(_tempDirectory))
-            {
-                Directory.Delete(_tempDirectory, true);
-            }
-        }
-
         [TestMethod]
         public void ClientDiscoveredEventArgs_StoresValues()
         {
@@ -55,14 +36,6 @@ namespace CSArp.Tests
         }
 
         [TestMethod]
-        public void Spoofer_DefaultState_IsNotSpoofing()
-        {
-            var spoofer = new Spoofer();
-
-            Assert.IsFalse(spoofer.IsSpoofing);
-        }
-
-        [TestMethod]
         public void PhysicalAddressExtensions_ParseAndFormat_RoundTrip()
         {
             var parsed = "AA-BB-CC-DD-EE-FF".Parse();
@@ -77,6 +50,33 @@ namespace CSArp.Tests
             Assert.IsTrue(ScanPolicyConfig.Balanced.UdpDiscoveryEnabled);
             Assert.IsFalse(ScanPolicyConfig.Balanced.TcpSynEnabled);
             Assert.IsTrue(ScanPolicyConfig.Aggressive.TcpSynEnabled);
+        }
+
+        [TestMethod]
+        public void Spoofer_DefaultState_IsNotSpoofing()
+        {
+            var spoofer = new Spoofer();
+
+            Assert.IsFalse(spoofer.IsSpoofing);
+        }
+
+        [TestCleanup]
+        public void TestCleanup()
+        {
+            Environment.CurrentDirectory = _originalDirectory;
+            if (Directory.Exists(_tempDirectory))
+            {
+                Directory.Delete(_tempDirectory, true);
+            }
+        }
+
+        [TestInitialize]
+        public void TestInitialize()
+        {
+            _originalDirectory = Environment.CurrentDirectory;
+            _tempDirectory = Path.Combine(Path.GetTempPath(), "csarp-tests", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_tempDirectory);
+            Environment.CurrentDirectory = _tempDirectory;
         }
     }
 }

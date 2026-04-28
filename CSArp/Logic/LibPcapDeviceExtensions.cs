@@ -12,15 +12,14 @@ namespace CSArp.Logic
         public static IReadOnlyList<LibPcapLiveDevice> GetWinPcapDevices() =>
             CaptureDeviceList.Instance.OfType<LibPcapLiveDevice>().ToArray();
 
+        public static IPAddress ReadCurrentIpV4Address(this LibPcapLiveDevice device) =>
+            ReadCurrentNetworkInfo(device).ipAddress;
+
         internal static IPV4Subnet ReadCurrentSubnet(this LibPcapLiveDevice device)
         {
             var (ipAddress, subnetMask) = ReadCurrentNetworkInfo(device);
             return new IPV4Subnet(ipAddress, subnetMask);
         }
-
-        public static IPAddress ReadCurrentIpV4Address(this LibPcapLiveDevice device) =>
-            ReadCurrentNetworkInfo(device).ipAddress;
-
         private static (IPAddress ipAddress, IPAddress subnetMask) ReadCurrentNetworkInfo(LibPcapLiveDevice device)
         {
             if (device == null)

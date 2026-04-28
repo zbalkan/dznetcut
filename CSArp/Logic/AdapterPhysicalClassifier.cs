@@ -55,7 +55,7 @@ namespace CSArp.Logic
                 return false;
             }
 
-            return PhysicalBusPrefixes.Any(prefix => pnpDeviceId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+            return PhysicalBusPrefixes.Any(prefix => pnpDeviceId!.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
         }
 
         private static Dictionary<string, bool> ReadMsftHardwareInterfaceMap()
@@ -73,14 +73,14 @@ namespace CSArp.Logic
                 foreach (var adapter in searcher.Get().OfType<ManagementObject>())
                 {
                     var guid = adapter["InterfaceGuid"] as string;
-                    if (string.IsNullOrWhiteSpace(guid) || map.ContainsKey(guid))
+                    if (string.IsNullOrWhiteSpace(guid) || map.ContainsKey(guid!))
                     {
                         continue;
                     }
 
                     if (adapter["HardwareInterface"] is bool isPhysical)
                     {
-                        map[guid] = isPhysical;
+                        map[guid!] = isPhysical;
                     }
                 }
             }
@@ -103,14 +103,14 @@ namespace CSArp.Logic
                 foreach (var adapter in searcher.Get().OfType<ManagementObject>())
                 {
                     var guid = adapter["GUID"] as string;
-                    if (string.IsNullOrWhiteSpace(guid) || map.ContainsKey(guid))
+                    if (string.IsNullOrWhiteSpace(guid) || map.ContainsKey(guid!))
                     {
                         continue;
                     }
 
                     if (adapter["PhysicalAdapter"] is bool isPhysical)
                     {
-                        map[guid] = isPhysical;
+                        map[guid!] = isPhysical;
                     }
                 }
             }
@@ -134,12 +134,12 @@ namespace CSArp.Logic
                 {
                     var guid = adapter["GUID"] as string;
                     var pnpDeviceId = adapter["PNPDeviceID"] as string;
-                    if (string.IsNullOrWhiteSpace(guid) || string.IsNullOrWhiteSpace(pnpDeviceId) || map.ContainsKey(guid))
+                    if (string.IsNullOrWhiteSpace(guid) || string.IsNullOrWhiteSpace(pnpDeviceId) || map.ContainsKey(guid!))
                     {
                         continue;
                     }
 
-                    map[guid] = pnpDeviceId;
+                    map[guid!] = pnpDeviceId!;
                 }
             }
             catch

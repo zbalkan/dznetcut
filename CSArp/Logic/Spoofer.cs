@@ -15,19 +15,18 @@ namespace CSArp.Logic
     {
         private readonly Action<string> _log;
         private readonly object _sync = new object();
+        private int _activeTargetCount;
         private CancellationTokenSource? _spoofingCts;
         private List<Task> _spoofingTasks = new List<Task>();
-        private int _activeTargetCount;
-
         public Spoofer(Action<string>? log = null)
         {
             _log = log ?? (msg => Debug.Print(msg));
         }
 
-        public bool IsSpoofing
-        {
-            get
-            {
+        public event Action<bool>? SpoofingStateChanged;
+
+        public bool IsSpoofing {
+            get {
                 lock (_sync)
                 {
                     return _spoofingCts != null
@@ -36,8 +35,6 @@ namespace CSArp.Logic
                 }
             }
         }
-        public event Action<bool>? SpoofingStateChanged;
-
         public void Start(
             IReadOnlyDictionary<IPAddress, PhysicalAddress> targets,
             IPAddress gatewayIpAddress,
@@ -127,8 +124,26 @@ namespace CSArp.Logic
             SpoofingStateChanged?.Invoke(false);
         }
 
+        private static EthernetPacket BuildPoisonReplyPacket(
+            PhysicalAddress senderMacAddress,
+            PhysicalAddress destinationMacAddress,
+            IPAddress spoofedProtocolAddress,
+            IPAddress destinationProtocolAddress)
+        {
+            var arpReply = new ArpPacket(
+                ArpOperation.Response,
+                destinationMacAddress,
+                destinationProtocolAddress,
+                senderMacAddress,
+                spoofedProtocolAddress);
+            return new EthernetPacket(senderMacAddress, destinationMacAddress, EthernetType.Arp)
+            {
+                PayloadPacket = arpReply
+            };
+        }
+
         private async Task SendSpoofingPacket(
-            IPAddress ipAddress,
+                    IPAddress ipAddress,
             PhysicalAddress physicalAddress,
             IPAddress gatewayIpAddress,
             PhysicalAddress gatewayMacAddress,
@@ -172,24 +187,6 @@ namespace CSArp.Logic
             }
 
             _log($"Spoofing thread terminating for {physicalAddress.ToString("-")} @ {ipAddress}");
-        }
-
-        private static EthernetPacket BuildPoisonReplyPacket(
-            PhysicalAddress senderMacAddress,
-            PhysicalAddress destinationMacAddress,
-            IPAddress spoofedProtocolAddress,
-            IPAddress destinationProtocolAddress)
-        {
-            var arpReply = new ArpPacket(
-                ArpOperation.Response,
-                destinationMacAddress,
-                destinationProtocolAddress,
-                senderMacAddress,
-                spoofedProtocolAddress);
-            return new EthernetPacket(senderMacAddress, destinationMacAddress, EthernetType.Arp)
-            {
-                PayloadPacket = arpReply
-            };
         }
     }
 }

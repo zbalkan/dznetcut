@@ -6,69 +6,6 @@ using System.Net.NetworkInformation;
 
 namespace CSArp.Logic
 {
-    internal sealed class AdapterDeviceSnapshot
-    {
-        public AdapterDeviceSnapshot(string deviceId, string displayName, IPAddress? ipv4Address, PhysicalAddress? macAddress)
-        {
-            DeviceId = deviceId;
-            DisplayName = displayName;
-            Ipv4Address = ipv4Address;
-            MacAddress = macAddress;
-        }
-
-        public string DeviceId { get; }
-        public string DisplayName { get; }
-        public IPAddress? Ipv4Address { get; }
-        public PhysicalAddress? MacAddress { get; }
-    }
-
-    internal sealed class InterfaceSnapshot
-    {
-        public InterfaceSnapshot(
-            string interfaceId,
-            string name,
-            PhysicalAddress? macAddress,
-            NetworkInterfaceType interfaceType,
-            bool isPhysicalAdapter,
-            IReadOnlyCollection<IPAddress> unicastAddresses,
-            IReadOnlyCollection<IPAddress> gatewayAddresses)
-        {
-            InterfaceId = interfaceId;
-            Name = name;
-            MacAddress = macAddress;
-            InterfaceType = interfaceType;
-            IsPhysicalAdapter = isPhysicalAdapter;
-            UnicastAddresses = unicastAddresses;
-            GatewayAddresses = gatewayAddresses;
-        }
-
-        public string InterfaceId { get; }
-        public string Name { get; }
-        public PhysicalAddress? MacAddress { get; }
-        public NetworkInterfaceType InterfaceType { get; }
-        public bool IsPhysicalAdapter { get; }
-        public IReadOnlyCollection<IPAddress> UnicastAddresses { get; }
-        public IReadOnlyCollection<IPAddress> GatewayAddresses { get; }
-    }
-
-    internal sealed class AdapterSelectionOptionModel
-    {
-        public AdapterSelectionOptionModel(string deviceId, string displayText, string? interfaceId, IPAddress? gatewayIpAddress, bool isPhysical)
-        {
-            DeviceId = deviceId;
-            DisplayText = displayText;
-            InterfaceId = interfaceId;
-            GatewayIpAddress = gatewayIpAddress;
-            IsPhysical = isPhysical;
-        }
-
-        public string DeviceId { get; }
-        public string DisplayText { get; }
-        public string? InterfaceId { get; }
-        public IPAddress? GatewayIpAddress { get; }
-        public bool IsPhysical { get; }
-    }
-
     internal static class AdapterSelectionService
     {
         public static IReadOnlyList<AdapterSelectionOptionModel> BuildOptions(
@@ -148,5 +85,69 @@ namespace CSArp.Logic
 
             return macAddress.Any(octet => octet != 0);
         }
+    }
+
+    internal sealed class AdapterDeviceSnapshot
+    {
+        public AdapterDeviceSnapshot(string deviceId, string displayName, IPAddress? ipv4Address, PhysicalAddress? macAddress)
+        {
+            DeviceId = deviceId;
+            DisplayName = displayName;
+
+            Ipv4Address = ipv4Address;
+            MacAddress = macAddress;
+        }
+
+        public string DeviceId { get; }
+        public string DisplayName { get; }
+        public IPAddress? Ipv4Address { get; }
+        public PhysicalAddress? MacAddress { get; }
+    }
+
+    internal sealed class AdapterSelectionOptionModel
+    {
+        public AdapterSelectionOptionModel(string deviceId, string displayText, string? interfaceId, IPAddress? gatewayIpAddress, bool isPhysical)
+        {
+            DeviceId = deviceId;
+            DisplayText = displayText;
+            InterfaceId = interfaceId;
+            GatewayIpAddress = gatewayIpAddress;
+            IsPhysical = isPhysical;
+        }
+
+        public string DeviceId { get; }
+        public string DisplayText { get; }
+        public IPAddress? GatewayIpAddress { get; }
+        public string? InterfaceId { get; }
+        public bool IsPhysical { get; }
+    }
+
+    internal sealed class InterfaceSnapshot
+    {
+        public InterfaceSnapshot(
+            string interfaceId,
+            string name,
+            PhysicalAddress? macAddress,
+            NetworkInterfaceType interfaceType,
+            bool isPhysicalAdapter,
+            IReadOnlyCollection<IPAddress> unicastAddresses,
+            IReadOnlyCollection<IPAddress> gatewayAddresses)
+        {
+            InterfaceId = interfaceId;
+            Name = name;
+            MacAddress = macAddress;
+            InterfaceType = interfaceType;
+            IsPhysicalAdapter = isPhysicalAdapter;
+            UnicastAddresses = unicastAddresses;
+            GatewayAddresses = gatewayAddresses;
+        }
+
+        public IReadOnlyCollection<IPAddress> GatewayAddresses { get; }
+        public string InterfaceId { get; }
+        public NetworkInterfaceType InterfaceType { get; }
+        public bool IsPhysicalAdapter { get; }
+        public PhysicalAddress? MacAddress { get; }
+        public string Name { get; }
+        public IReadOnlyCollection<IPAddress> UnicastAddresses { get; }
     }
 }

@@ -7,9 +7,8 @@ namespace CSArp.Logic
 {
     internal sealed class IPV4Subnet
     {
-        private readonly uint _networkAddress;
         private readonly uint _broadcastAddress;
-
+        private readonly uint _networkAddress;
         public IPV4Subnet(IPAddress currentAddress, IPAddress subnetMask)
         {
             if (currentAddress == null)
@@ -73,10 +72,16 @@ namespace CSArp.Logic
             }
         }
 
-        private static bool IsContiguousMask(uint mask)
+        private static IPAddress ConvertToIPv4Address(uint value)
         {
-            var inverted = ~mask;
-            return (inverted & (inverted + 1)) == 0;
+            var addressBytes = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(addressBytes);
+            }
+
+            return new IPAddress(addressBytes);
         }
 
         private static uint ConvertToUint(IPAddress ipAddress)
@@ -96,16 +101,10 @@ namespace CSArp.Logic
             return BitConverter.ToUInt32(addressBytes, 0);
         }
 
-        private static IPAddress ConvertToIPv4Address(uint value)
+        private static bool IsContiguousMask(uint mask)
         {
-            var addressBytes = BitConverter.GetBytes(value);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(addressBytes);
-            }
-
-            return new IPAddress(addressBytes);
+            var inverted = ~mask;
+            return (inverted & (inverted + 1)) == 0;
         }
     }
 }
