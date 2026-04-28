@@ -66,20 +66,14 @@ namespace CSArp.Model
         public List<IPAddress> ToList()
         {
             var list = new List<IPAddress>();
-
-            while (GetEnumerator().MoveNext())
+            for (var adr = firstAddressAsUint; adr <= lastAddressAsUint; adr++)
             {
-                list.Add(GetEnumerator().Current);
+                var address = ConvertToIPv4Address(adr);
+                list.Add(address);
+
             }
 
             return list;
-        }
-        private IEnumerator<IPAddress> GetEnumerator()
-        {
-            for (var adr = firstAddressAsUint; adr <= lastAddressAsUint; adr++)
-            {
-                yield return ConvertToIPv4Address(adr);
-            }
         }
 
         private uint ConvertToUint(IPAddress ipAddress)
