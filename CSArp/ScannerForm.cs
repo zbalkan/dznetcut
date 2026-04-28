@@ -41,7 +41,7 @@ namespace CSArp
             _networkScanner.ScanStateChanged += _ => SafeUpdateUiState();
         }
 
-        private static IReadOnlyList<AdapterSelectionOptionModel> BuildAdapterOptions()
+        private static IReadOnlyList<AdapterSelectionOptionModel> BuildAdapterOptions(IReadOnlyList<LibPcapLiveDevice> devices)
         {
             var systemInterfaces = NetworkInterface.GetAllNetworkInterfaces();
             var physicalByInterfaceId = AdapterPhysicalClassifier.BuildByInterfaceId(systemInterfaces);
@@ -58,7 +58,7 @@ namespace CSArp
                         networkInterface.GetIPProperties().UnicastAddresses.Select(address => address.Address).ToArray(),
                         networkInterface.GetIPProperties().GatewayAddresses.Select(address => address.Address).ToArray()))
                 .ToArray();
-            var devices = LibPcapDeviceExtensions.GetWinPcapDevices()
+            var deviceSnapshots = devices
                 .Select(device =>
                     new AdapterDeviceSnapshot(
                         device.Name,
@@ -67,7 +67,7 @@ namespace CSArp
                         device.MacAddress))
                 .ToArray();
 
-            return AdapterSelectionService.BuildOptions(devices, networkInterfaces);
+            return AdapterSelectionService.BuildOptions(deviceSnapshots, networkInterfaces);
         }
 
         private static bool TryReadClientIdentity(ListViewItem? item, out IPAddress ipAddress, out PhysicalAddress macAddress)
@@ -115,16 +115,18 @@ namespace CSArp
 
         private void aboutCSArpToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? Application.ProductVersion;
-            var aboutText =
-                "CSArp\n" +
-                $"Version: {version}\n\n" +
-                "Authors: globalpolicy, Zafer Balkan (DeltaZulu OÜ)\n" +
-                "Copyright: Portions Copyright © 2017 globalpolicy; Copyright © 2024-2026 Zafer Balkan (DeltaZulu OÜ)\n" +
-                "License: MIT (see LICENSE file)\n\n" +
-                "Contributions are welcome.";
+            const string aboutText =
+                "dznetcut v2.0.0\n" +
+                "A DeltaZulu Project\n\n" +
+                "Licensed under GNU GPL v3.0\n" +
+                "Copyright (c) 2024-2026 Zafer Balkan\n\n" +
+                "Includes components from dzmac (GPLv3).\n" +
+                "Derived from csarp-netcut (MIT License).\n\n" +
+                "Upstream Hash: 6952d98\n" +
+                "DeltaZulu Hash: cbaba0b\n\n" +
+                "Source: github.com/DeltaZulu-OU/dznetcut";
 
-            _ = MessageBox.Show(aboutText, "About CSArp", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _ = MessageBox.Show(aboutText, "about dznetcut", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void AddClientToList(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway)
@@ -392,7 +394,13 @@ namespace CSArp
                 ? toolStripComboBoxDevicelist.Text
                 : preferredSelection!;
 
-            var options = BuildAdapterOptions();
+            var captureReady = LibPcapDeviceExtensions.TryGetWinPcapDevices(out var winPcapDevices, out var captureError);
+            if (!captureReady && !string.IsNullOrWhiteSpace(captureError))
+            {
+                Log(captureError!);
+            }
+
+            var options = BuildAdapterOptions(winPcapDevices);
             var includeVirtualAdapters = toolStripMenuItemSelectAllAdapters.Checked;
             var visibleOptions = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters);
 
@@ -400,7 +408,7 @@ namespace CSArp
             _pcapDevicesById.Clear();
             _displayTextByDeviceId.Clear();
             toolStripComboBoxDevicelist.Items.Clear();
-            foreach (var device in LibPcapDeviceExtensions.GetWinPcapDevices())
+            foreach (var device in winPcapDevices)
             {
                 _pcapDevicesById[device.Name] = device;
             }
@@ -416,9 +424,16 @@ namespace CSArp
             if (visibleOptions.Count == 0)
             {
                 toolStripComboBoxDevicelist.Text = string.Empty;
-                toolStripStatus.Text = includeVirtualAdapters
-                    ? "No adapters available."
-                    : "No physical adapters found. Enable 'Show All Adapters'.";
+                if (_pcapDevicesById.Count == 0)
+                {
+                    toolStripStatus.Text = "No capture adapters found. Install Npcap and restart dznetcut.";
+                }
+                else
+                {
+                    toolStripStatus.Text = includeVirtualAdapters
+                        ? "No adapters available."
+                        : "No physical adapters found. Enable 'Show All Adapters'.";
+                }
                 return;
             }
 

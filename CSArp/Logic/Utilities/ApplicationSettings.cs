@@ -11,12 +11,10 @@ namespace CSArp.Logic.Utilities
     {
         private const string MajorDelimiter = "--------------------------------------------------------------";
         private const char MinorDelimiter = '$';
-        private const string SettingsFileName = "CSArp_settings.ini";
-        private const string SettingsDirectoryName = "CSArp";
+        private const string SettingsFileName = "dznetcut.config";
         private const string ShowLogPrefix = "show_log=";
         private static readonly string SettingsFilePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            SettingsDirectoryName,
+            AppDomain.CurrentDomain.BaseDirectory,
             SettingsFileName);
 
         public static string GetSavedClientNameFromMAC(string clientMacAddress)

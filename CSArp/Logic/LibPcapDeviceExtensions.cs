@@ -9,8 +9,45 @@ namespace CSArp.Logic
 {
     public static class LibPcapDeviceExtensions
     {
-        public static IReadOnlyList<LibPcapLiveDevice> GetWinPcapDevices() =>
-            CaptureDeviceList.Instance.OfType<LibPcapLiveDevice>().ToArray();
+        public static IReadOnlyList<LibPcapLiveDevice> GetWinPcapDevices()
+        {
+            _ = TryGetWinPcapDevices(out var devices, out _);
+            return devices;
+        }
+
+        public static bool TryGetWinPcapDevices(out IReadOnlyList<LibPcapLiveDevice> devices, out string? errorMessage)
+        {
+            try
+            {
+                devices = CaptureDeviceList.Instance.OfType<LibPcapLiveDevice>().ToArray();
+                errorMessage = null;
+                return true;
+            }
+            catch (DllNotFoundException ex)
+            {
+                devices = Array.Empty<LibPcapLiveDevice>();
+                errorMessage = $"Packet capture driver not found. Install Npcap. [{ex.Message}]";
+                return false;
+            }
+            catch (TypeInitializationException ex)
+            {
+                devices = Array.Empty<LibPcapLiveDevice>();
+                errorMessage = $"Packet capture subsystem failed to initialize. [{ex.Message}]";
+                return false;
+            }
+            catch (BadImageFormatException ex)
+            {
+                devices = Array.Empty<LibPcapLiveDevice>();
+                errorMessage = $"Packet capture library architecture mismatch. [{ex.Message}]";
+                return false;
+            }
+            catch (PcapException ex)
+            {
+                devices = Array.Empty<LibPcapLiveDevice>();
+                errorMessage = $"Packet capture unavailable. [{ex.Message}]";
+                return false;
+            }
+        }
 
         public static IPAddress ReadCurrentIpV4Address(this LibPcapLiveDevice device) =>
             ReadCurrentNetworkInfo(device).ipAddress;

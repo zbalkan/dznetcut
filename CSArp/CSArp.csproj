@@ -6,23 +6,24 @@
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <RootNamespace>CSArp</RootNamespace>
-    <AssemblyName>CSArp</AssemblyName>
+    <RootNamespace>DeltaZulu.dznetcut</RootNamespace>
+    <AssemblyName>dznetcut</AssemblyName>
 
-    <Title>CSArp</Title>
-    <Description>Arpspoof program - Modernized fork</Description>
+    <Title>dznetcut</Title>
+    <Description>Zero-footprint ARP management tool.</Description>
     <Company>DeltaZulu OÜ</Company>
-    <Product>CSArp</Product>
-    <Copyright>Portions Copyright © 2017 globalpolicy; Copyright © 2024-2026 Zafer Balkan (DeltaZulu OÜ)</Copyright>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>1.4.0</Version>
-    <AssemblyVersion>1.4.0.0</AssemblyVersion>
-    <FileVersion>1.4.0.0</FileVersion>
+    <Product>dznetcut</Product>
+    <Copyright>Copyright © 2024-2026 Zafer Balkan (DeltaZulu OÜ). Portions © 2017 globalpolicy.</Copyright>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
     
     <Guid>8fb487c8-306d-4476-8c6b-4d3ddf1853a4</Guid>
 
     <StartupObject>CSArp.Program</StartupObject>
     <ApplicationIcon>icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
 
