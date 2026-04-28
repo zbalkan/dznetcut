@@ -41,6 +41,7 @@ namespace CSArp
             this.editToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemChooseInterface = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripComboBoxDevicelist = new System.Windows.Forms.ToolStripComboBox();
+            this.toolStripMenuItemSelectAllAdapters = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.ClientNametoolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripTextBoxClientName = new System.Windows.Forms.ToolStripTextBox();
@@ -115,6 +116,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // 
             this.editToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripMenuItemChooseInterface,
+            this.toolStripMenuItemSelectAllAdapters,
             this.toolStripSeparator3,
             this.ClientNametoolStripMenuItem,
             this.toolStripSeparator1,
@@ -140,6 +142,15 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // 
             this.toolStripComboBoxDevicelist.Name = "toolStripComboBoxDevicelist";
             this.toolStripComboBoxDevicelist.Size = new System.Drawing.Size(121, 23);
+            // 
+            // toolStripMenuItemSelectAllAdapters
+            // 
+            this.toolStripMenuItemSelectAllAdapters.CheckOnClick = true;
+            this.toolStripMenuItemSelectAllAdapters.Name = "toolStripMenuItemSelectAllAdapters";
+            this.toolStripMenuItemSelectAllAdapters.Size = new System.Drawing.Size(193, 22);
+            this.toolStripMenuItemSelectAllAdapters.Text = "Show All Adapters";
+            this.toolStripMenuItemSelectAllAdapters.ToolTipText = "Include virtual adapters in addition to physical adapters";
+            this.toolStripMenuItemSelectAllAdapters.CheckStateChanged += new System.EventHandler(this.toolStripMenuItemSelectAllAdapters_CheckStateChanged);
             // 
             // toolStripSeparator3
             // 
@@ -407,6 +418,7 @@ private System.Windows.Forms.ColumnHeader columnHeaderIP;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSaveSettings;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemChooseInterface;
         private System.Windows.Forms.ToolStripComboBox toolStripComboBoxDevicelist;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSelectAllAdapters;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemRefreshClients;

@@ -25,6 +25,8 @@ namespace CSArp
         private IPAddress? _sourceIpAddress;
         private PhysicalAddress? _sourceMacAddress;
         private readonly Dictionary<string, ListViewItem> _clientItemsByIp = new Dictionary<string, ListViewItem>(StringComparer.Ordinal);
+        private readonly Dictionary<string, AdapterSelectionOptionModel> _adapterOptionsByDisplayText = new Dictionary<string, AdapterSelectionOptionModel>(StringComparer.Ordinal);
+        private readonly Dictionary<string, LibPcapLiveDevice> _pcapDevicesById = new Dictionary<string, LibPcapLiveDevice>(StringComparer.Ordinal);
         private string? _nameEditorSelectionKey;
 
         public ScannerForm()
@@ -90,13 +92,24 @@ namespace CSArp
                 return false;
             }
 
-            var interfaceFriendlyName = toolStripComboBoxDevicelist.Text;
-            if (!string.Equals(_selectedInterfaceFriendlyName, interfaceFriendlyName, StringComparison.Ordinal) || _selectedDevice == null)
+            var selectedDisplayText = toolStripComboBoxDevicelist.Text;
+            if (!_adapterOptionsByDisplayText.TryGetValue(selectedDisplayText, out var selectedAdapterOption))
             {
-                _selectedInterfaceFriendlyName = interfaceFriendlyName;
+                _ = MessageBox.Show("Could not resolve the selected network adapter.", "Adapter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (!_pcapDevicesById.TryGetValue(selectedAdapterOption.DeviceId, out var pcapDevice))
+            {
+                _ = MessageBox.Show("Could not resolve the selected pcap device.", "Adapter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (!string.Equals(_selectedInterfaceFriendlyName, selectedDisplayText, StringComparison.Ordinal) || _selectedDevice == null)
+            {
+                _selectedInterfaceFriendlyName = selectedDisplayText;
                 CloseSelectedDevice();
-                _selectedDevice = LibPcapDeviceExtensions.GetWinPcapDevices()
-                    .FirstOrDefault(dev => string.Equals(dev.Interface?.FriendlyName, _selectedInterfaceFriendlyName, StringComparison.Ordinal));
+                _selectedDevice = pcapDevice;
             }
 
             selectedDevice = _selectedDevice;
@@ -106,12 +119,7 @@ namespace CSArp
                 return false;
             }
 
-            gatewayIpAddress = NetworkInterface.GetAllNetworkInterfaces()
-                .FirstOrDefault(i => i.Name == _selectedInterfaceFriendlyName)?
-                .GetIPProperties()
-                .GatewayAddresses
-                .Select(g => g.Address)
-                .FirstOrDefault(address => address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+            gatewayIpAddress = selectedAdapterOption.GatewayIpAddress;
 
             if (gatewayIpAddress == null)
             {
@@ -245,18 +253,18 @@ namespace CSArp
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            toolStripComboBoxDevicelist.Items.AddRange(LibPcapDeviceExtensions.GetWinPcapDevices()
-                 .Select(device => device.Interface?.FriendlyName)
-                .OfType<string>()
-                .Distinct(StringComparer.Ordinal)
-                .ToArray());
-
-            toolStripComboBoxDevicelist.Text = ApplicationSettings.GetSavedPreferredInterfaceFriendlyName() ?? string.Empty;
+            PopulateAdapterDropDown(preferredSelection: null);
             var showLog = ApplicationSettings.GetSavedShowLog() ?? false;
             showLogToolStripMenuItem.Checked = showLog;
             ApplyLogVisibility(showLog);
             AdjustClientListViewLayout();
+            toolStripStatus.Text = "Select an interface.";
             UpdateUiState();
+        }
+
+        private void toolStripMenuItemSelectAllAdapters_CheckStateChanged(object sender, EventArgs e)
+        {
+            PopulateAdapterDropDown(toolStripComboBoxDevicelist.Text);
         }
 
         private void cutoffToolStripMenuItem_Click(object sender, EventArgs e) => DisconnectSelectedClients();
@@ -488,6 +496,88 @@ namespace CSArp
             columnHeaderMAC.Width = macWidth;
             columnHeaderCutoffStatus.Width = statusWidth;
             columnHeaderClientname.Width = nameWidth;
+        }
+
+        private void PopulateAdapterDropDown(string? preferredSelection)
+        {
+            var currentSelection = string.IsNullOrWhiteSpace(preferredSelection)
+                ? toolStripComboBoxDevicelist.Text
+                : preferredSelection!;
+
+            var options = BuildAdapterOptions();
+            var includeVirtualAdapters = toolStripMenuItemSelectAllAdapters.Checked;
+            var visibleOptions = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters);
+
+            _adapterOptionsByDisplayText.Clear();
+            _pcapDevicesById.Clear();
+            toolStripComboBoxDevicelist.Items.Clear();
+            foreach (var device in LibPcapDeviceExtensions.GetWinPcapDevices())
+            {
+                _pcapDevicesById[device.Name] = device;
+            }
+
+            foreach (var option in visibleOptions)
+            {
+                _adapterOptionsByDisplayText[option.DisplayText] = option;
+                toolStripComboBoxDevicelist.Items.Add(option.DisplayText);
+            }
+
+            if (visibleOptions.Count == 0)
+            {
+                toolStripComboBoxDevicelist.Text = string.Empty;
+                toolStripStatus.Text = includeVirtualAdapters
+                    ? "No adapters available."
+                    : "No physical adapters found. Enable 'Show All Adapters'.";
+                return;
+            }
+
+            var selectedText = visibleOptions
+                .Select(option => option.DisplayText)
+                .FirstOrDefault(text => string.Equals(text, currentSelection, StringComparison.Ordinal))
+                ?? string.Empty;
+
+            toolStripComboBoxDevicelist.Text = selectedText;
+        }
+
+        private static IReadOnlyList<AdapterSelectionOptionModel> BuildAdapterOptions()
+        {
+            var systemInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+            var physicalByInterfaceId = AdapterPhysicalClassifier.BuildByInterfaceId(systemInterfaces);
+            var networkInterfaces = systemInterfaces
+                .Select(networkInterface =>
+                    new InterfaceSnapshot(
+                        networkInterface.Id,
+                        networkInterface.Name,
+                        networkInterface.GetPhysicalAddress(),
+                        networkInterface.NetworkInterfaceType,
+                        physicalByInterfaceId.TryGetValue(networkInterface.Id, out var isPhysical)
+                            ? isPhysical
+                            : AdapterSelectionService.IsLikelyPhysicalAdapter(networkInterface.NetworkInterfaceType, networkInterface.GetPhysicalAddress()),
+                        networkInterface.GetIPProperties().UnicastAddresses.Select(address => address.Address).ToArray(),
+                        networkInterface.GetIPProperties().GatewayAddresses.Select(address => address.Address).ToArray()))
+                .ToArray();
+            var devices = LibPcapDeviceExtensions.GetWinPcapDevices()
+                .Select(device =>
+                    new AdapterDeviceSnapshot(
+                        device.Name,
+                        device.Interface?.FriendlyName ?? device.Name,
+                        TryReadDeviceIpv4(device),
+                        device.MacAddress))
+                .ToArray();
+
+            return AdapterSelectionService.BuildOptions(devices, networkInterfaces);
+        }
+
+        private static IPAddress? TryReadDeviceIpv4(LibPcapLiveDevice device)
+        {
+            try
+            {
+                return device.ReadCurrentIpV4Address();
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
         }
     }
 }
