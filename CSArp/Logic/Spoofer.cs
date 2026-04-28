@@ -14,6 +14,7 @@ namespace CSArp.Logic
     public class Spoofer
     {
         private readonly Action<string> _log;
+        private readonly object _sendSync = new object();
         private readonly object _sync = new object();
         private int _activeTargetCount;
         private CancellationTokenSource? _spoofingCts;
@@ -182,8 +183,11 @@ namespace CSArp.Logic
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    captureDevice.SendPacket(packetToTarget);
-                    captureDevice.SendPacket(packetToGateway);
+                    lock (_sendSync)
+                    {
+                        captureDevice.SendPacket(packetToTarget);
+                        captureDevice.SendPacket(packetToGateway);
+                    }
                     await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
                 }
             }

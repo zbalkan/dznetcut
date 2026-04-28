@@ -146,7 +146,7 @@ namespace CSArp
             if (_clientItemsByIp.TryGetValue(ipKey, out var existing))
             {
                 existing.SubItems[1].Text = macValue;
-                if (string.IsNullOrWhiteSpace(existing.SubItems[3].Text))
+                if (isGateway || isSourceDevice || string.IsNullOrWhiteSpace(existing.SubItems[3].Text))
                 {
                     existing.SubItems[3].Text = name;
                 }
@@ -530,8 +530,15 @@ namespace CSArp
         private void StopNetworkScan()
         {
             _networkScanner.StopScan();
-            _networkScanner.WaitForStop(TimeSpan.FromSeconds(3));
-            CloseSelectedDevice();
+            var stopped = _networkScanner.WaitForStop(TimeSpan.FromSeconds(5));
+            if (stopped && !_networkScanner.IsScanning)
+            {
+                CloseSelectedDevice();
+            }
+            else
+            {
+                Log("Scan is still stopping; deferring device close to avoid race with capture operations.");
+            }
             UpdateUiState();
         }
 
@@ -616,7 +623,16 @@ namespace CSArp
                 selectedDevice.Open(conf);
             }
 
-            _sourceIpAddress = selectedDevice.ReadCurrentIpV4Address();
+            try
+            {
+                _sourceIpAddress = selectedDevice.ReadCurrentIpV4Address();
+            }
+            catch (InvalidOperationException)
+            {
+                _ = MessageBox.Show("Could not read IPv4 address for the selected adapter.", "Adapter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
             _sourceMacAddress = selectedDevice.MacAddress;
 
             return true;

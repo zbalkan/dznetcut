@@ -115,7 +115,7 @@ namespace CSArp.Logic
             }
         }
 
-        public void WaitForStop(TimeSpan timeout)
+        public bool WaitForStop(TimeSpan timeout)
         {
             Task? scanTask;
             lock (_stateLock)
@@ -125,24 +125,32 @@ namespace CSArp.Logic
 
             if (scanTask == null)
             {
-                return;
+                return true;
             }
 
             try
             {
-                scanTask.Wait(timeout);
+                return scanTask.Wait(timeout);
             }
             catch (AggregateException)
             {
+                return true;
             }
         }
 
         private static string BuildCaptureFilter()
             => "arp or icmp or (udp and (port 5353 or port 5355 or port 137 or port 1900))";
 
-        private static async Task RunUdpDiscoveryPhase(CancellationToken cancellationToken)
+        private static async Task RunUdpDiscoveryPhase(IPAddress sourceAddress, CancellationToken cancellationToken)
         {
             using var udp = new UdpClient { EnableBroadcast = true };
+            udp.Client.Bind(new IPEndPoint(sourceAddress, 0));
+
+            var sourceBytes = sourceAddress.GetAddressBytes();
+            if (sourceBytes.Length == 4)
+            {
+                udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface, sourceBytes);
+            }
 
             var ssdpRequest = Encoding.ASCII.GetBytes(
                 "M-SEARCH * HTTP/1.1\r\nHOST:239.255.255.250:1900\r\nMAN:\"ssdp:discover\"\r\nMX:1\r\nST:ssdp:all\r\n\r\n");
@@ -377,6 +385,12 @@ namespace CSArp.Logic
             var subnet = networkAdapter.ReadCurrentSubnet();
             var sourceAddress = networkAdapter.ReadCurrentIpV4Address();
 
+            if (!networkAdapter.Opened)
+            {
+                var conf = new DeviceConfiguration { Mode = DeviceModes.Promiscuous, ReadTimeout = 1000 };
+                networkAdapter.Open(conf);
+            }
+
             networkAdapter.Filter = BuildCaptureFilter();
             StartPassiveCollector(networkAdapter, subnet, gatewayIp, evidenceStore, clientProgress, statusProgress);
 
@@ -404,7 +418,7 @@ namespace CSArp.Logic
                 if (_policy.UdpDiscoveryEnabled)
                 {
                     _log("Phase 4/6: UDP discovery started");
-                    parallelPhases.Add(RunUdpDiscoveryPhase(cancellationToken));
+                    parallelPhases.Add(RunUdpDiscoveryPhase(sourceAddress, cancellationToken));
                 }
 
                 if (parallelPhases.Count > 0)
@@ -517,6 +531,7 @@ namespace CSArp.Logic
                     }
                     catch (Exception)
                     {
+                        _log($"TCP probe failed for {target}:{port}");
                     }
                 }
             }
