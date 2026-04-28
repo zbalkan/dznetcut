@@ -16,7 +16,7 @@ namespace CSArp.Model
         private CancellationTokenSource _spoofingCts;
 
         public void Start(
-            IReadOnlyCollection<KeyValuePair<IPAddress, PhysicalAddress>> targets,
+            IReadOnlyDictionary<IPAddress, PhysicalAddress> targets,
             IPAddress gatewayIpAddress,
             PhysicalAddress gatewayMacAddress,
             LibPcapLiveDevice networkAdapter)
