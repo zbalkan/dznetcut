@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using SharpPcap;
-using SharpPcap.WinPcap;
-using SharpPcap.AirPcap;
+using SharpPcap.LibPcap;
 
 namespace CSArp.Model
 {
@@ -24,26 +23,13 @@ namespace CSArp.Model
 
         private static CaptureDeviceList _networkAdapters;
 
-        public static IReadOnlyList<WinPcapDevice> WinPcapDevices
+        public static IReadOnlyList<LibPcapLiveDevice> WinPcapDevices
         {
             get
             {
                 return NetworkAdapters
-                    .Where(adapter => adapter is WinPcapDevice)
-                    .Select(adapter => adapter as WinPcapDevice)
-                    .ToList()
-                    .AsReadOnly();
-            }
-        }
-
-        [Obsolete("Since AirPcap is obsolete, it will not be used at first.")]
-        public static IReadOnlyList<AirPcapDevice> AirPcapDevices
-        {
-            get
-            {
-                return NetworkAdapters
-                    .Where(adapter => adapter is AirPcapDevice)
-                    .Select(adapter => adapter as AirPcapDevice)
+                    .Where(adapter => adapter is LibPcapLiveDevice)
+                    .Select(adapter => adapter as LibPcapLiveDevice)
                     .ToList()
                     .AsReadOnly();
             }

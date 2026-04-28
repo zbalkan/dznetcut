@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.NetworkInformation;
 using SharpPcap;
-using SharpPcap.WinPcap;
+using SharpPcap.LibPcap;
 using PacketDotNet;
 using System.Diagnostics;
 using System.Threading;
@@ -33,7 +33,7 @@ namespace CSArp.Model
         /// </summary>
         /// <param name="view"></param>
         /// <param name="networkAdapter"></param>
-        public void StartScan(IView view, WinPcapDevice networkAdapter, IPAddress gatewayIp)
+        public void StartScan(IView view, LibPcapLiveDevice networkAdapter, IPAddress gatewayIp)
         {
             DebugOutput.Print("Refresh client list");
             #region initialization
@@ -52,7 +52,7 @@ namespace CSArp.Model
             StartForegroundScan(view, networkAdapter, gatewayIp, 5000);
         }
 
-        private void StartForegroundScan(IView view, WinPcapDevice networkAdapter, IPAddress gatewayIp, int foregroundScanTimeout)
+        private void StartForegroundScan(IView view, LibPcapLiveDevice networkAdapter, IPAddress gatewayIp, int foregroundScanTimeout)
         {
             // Obtain subnet information
             var subnet = networkAdapter.ReadCurrentSubnet();
@@ -71,17 +71,16 @@ namespace CSArp.Model
 
             #region Retrieving ARP packets floating around and finding out the senders' IP and MACs
             networkAdapter.Filter = "arp";
-            RawCapture rawcapture = null;
             ThreadBuffer.AddWithPrefix(new Thread(() =>
             {
                 try
                 {
                     var stopwatch = new Stopwatch();
                     stopwatch.Start();
-                    while ((rawcapture = networkAdapter.GetNextPacket()) != null && stopwatch.ElapsedMilliseconds <= foregroundScanTimeout && scanning)
+                    while ((networkAdapter.GetNextPacket(out var rawcapture) != GetPacketStatus.NoRemainingPackets) && stopwatch.ElapsedMilliseconds <= foregroundScanTimeout && scanning)
                     {
-                        var packet = Packet.ParsePacket(rawcapture.LinkLayerType, rawcapture.Data);
-                        var arppacket = (ARPPacket)packet.Extract(typeof(ARPPacket));
+                        var packet = Packet.ParsePacket(LinkLayers.Ethernet, rawcapture.Data.ToArray());
+                        var arppacket = packet.Extract<ArpPacket>();
                         if (!ArpTable.Instance.ContainsKey(arppacket.SenderProtocolAddress) && arppacket.SenderProtocolAddress.ToString() != "0.0.0.0" && subnet.Contains(arppacket.SenderProtocolAddress))
                         {
                             var isGateway = false;
@@ -129,7 +128,7 @@ namespace CSArp.Model
         /// <summary>
         /// Actively monitor ARP packets for signs of new clients after StartForegroundScan active scan is done
         /// </summary>
-        private void StartBackgroundScan(IView view, WinPcapDevice networkAdapter, IPAddress gatewayIp)
+        private void StartBackgroundScan(IView view, LibPcapLiveDevice networkAdapter, IPAddress gatewayIp)
         {
             try
             {
@@ -162,7 +161,7 @@ namespace CSArp.Model
         }
 
         // TODO: Start spoofing for devices regarding online status.
-        private void InitiateArpRequestQueue(IView view, WinPcapDevice networkAdapter, IPAddress gatewayIp)
+        private void InitiateArpRequestQueue(IView view, LibPcapLiveDevice networkAdapter, IPAddress gatewayIp)
         {
             try
             {
@@ -209,19 +208,19 @@ namespace CSArp.Model
             }
         }
 
-        private void SendArpRequest(WinPcapDevice networkAdapter, IPAddress targetIpAddress)
+        private void SendArpRequest(LibPcapLiveDevice networkAdapter, IPAddress targetIpAddress)
         {
-            var arprequestpacket = new ARPPacket(ARPOperation.Request, "00-00-00-00-00-00".Parse(), targetIpAddress, networkAdapter.MacAddress, networkAdapter.ReadCurrentIpV4Address());
-            var ethernetpacket = new EthernetPacket(networkAdapter.MacAddress, "FF-FF-FF-FF-FF-FF".Parse(), EthernetPacketType.Arp);
+            var arprequestpacket = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), targetIpAddress, networkAdapter.MacAddress, networkAdapter.ReadCurrentIpV4Address());
+            var ethernetpacket = new EthernetPacket(networkAdapter.MacAddress, "FF-FF-FF-FF-FF-FF".Parse(), EthernetType.Arp);
             ethernetpacket.PayloadPacket = arprequestpacket;
             networkAdapter.SendPacket(ethernetpacket);
             Debug.WriteLine("ARP request is sent to: {0}", targetIpAddress);
         }
 
-        private void ParseArpResponse(IView view, IPV4Subnet subnet, IPAddress gatewayIp, CaptureEventArgs e)
+        private void ParseArpResponse(IView view, IPV4Subnet subnet, IPAddress gatewayIp, SharpPcap.PacketCapture e)
         {
-            var packet = Packet.ParsePacket(e.Packet.LinkLayerType, e.Packet.Data);
-            var arppacket = (ARPPacket)packet.Extract(typeof(ARPPacket));
+            var packet = Packet.ParsePacket(LinkLayers.Ethernet, e.Data.ToArray());
+            var arppacket = packet.Extract<ArpPacket>();
             if (!ArpTable.Instance.ContainsKey(arppacket.SenderProtocolAddress) && arppacket.SenderProtocolAddress.ToString() != "0.0.0.0" && subnet.Contains(arppacket.SenderProtocolAddress) && scanning)
             {
                 var isGateway = false;
