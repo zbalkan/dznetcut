@@ -19,7 +19,7 @@ namespace CSArp.Model
 
         public Spoofer(Action<string> log = null)
         {
-            _log = log ?? Debug.Print;
+            _log = log ?? (msg => Debug.Print(msg));
         }
 
         public void Start(
@@ -39,7 +39,10 @@ namespace CSArp.Model
             _spoofingCts = new CancellationTokenSource();
             _activeTargetCount = targets.Count;
 
-            if (!networkAdapter.Opened) networkAdapter.Open();
+            if (!networkAdapter.Opened)
+            {
+                networkAdapter.Open();
+            }
 
             _log($"Spoofing task started for {_activeTargetCount} target(s).");
 
@@ -65,7 +68,11 @@ namespace CSArp.Model
 
         public void StopAll()
         {
-            if (_spoofingCts == null || _spoofingCts.IsCancellationRequested) return;
+            if (_spoofingCts == null || _spoofingCts.IsCancellationRequested)
+            {
+                return;
+            }
+
             _spoofingCts.Cancel();
             _log($"Spoofing task stopped for {_activeTargetCount} target(s).");
             _activeTargetCount = 0;

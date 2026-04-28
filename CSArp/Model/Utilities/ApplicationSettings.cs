@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using System.Windows.Forms;
 
-namespace CSArp.View
+namespace CSArp.Model.Utilities
 {
     public static class ApplicationSettings
     {
@@ -41,10 +41,8 @@ namespace CSArp.View
 
             try
             {
-                using (var reader = File.OpenText(SettingsFile))
-                {
-                    return reader.ReadLine();
-                }
+                using var reader = File.OpenText(SettingsFile);
+                return reader.ReadLine();
             }
             catch (Exception ex)
             {

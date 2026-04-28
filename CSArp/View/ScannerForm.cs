@@ -7,6 +7,7 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Windows.Forms;
 using CSArp.Model;
+using CSArp.Model.Utilities;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
@@ -34,11 +35,13 @@ namespace CSArp.View
         {
             Debug.Print(message);
             if (IsHandleCreated)
+            {
                 BeginInvoke(new Action(() =>
                 {
                     richTextBoxLog.AppendText($"{DateTime.Now} : {message}\n");
                     richTextBoxLog.ScrollToCaret();
                 }));
+            }
         }
 
         private void StartNetworkScan()
@@ -49,7 +52,10 @@ namespace CSArp.View
                 return;
             }
 
-            if (!TryPrepareSelectedDevice(out var selectedDevice, out var gatewayIpAddress)) return;
+            if (!TryPrepareSelectedDevice(out var selectedDevice, out var gatewayIpAddress))
+            {
+                return;
+            }
 
             _selectedDevice = selectedDevice;
             _gatewayIpAddress = gatewayIpAddress;
@@ -126,7 +132,10 @@ namespace CSArp.View
 
         private void CloseSelectedDevice()
         {
-            if (_selectedDevice == null || !_selectedDevice.Opened) return;
+            if (_selectedDevice == null || !_selectedDevice.Opened)
+            {
+                return;
+            }
 
             try
             {
@@ -141,7 +150,10 @@ namespace CSArp.View
 
         private void DisconnectSelectedClients()
         {
-            if (clientListView.SelectedItems.Count == 0) return;
+            if (clientListView.SelectedItems.Count == 0)
+            {
+                return;
+            }
 
             var gatewayPhysicalAddress = clientListView.Items
                 .OfType<ListViewItem>()
@@ -173,7 +185,10 @@ namespace CSArp.View
 
             foreach (ListViewItem item in clientListView.SelectedItems)
             {
-                if (!IsProtectedTarget(item)) item.SubItems[2].Text = "Off";
+                if (!IsProtectedTarget(item))
+                {
+                    item.SubItems[2].Text = "Off";
+                }
             }
 
             _arpSpoofer.Start(targets, _gatewayIpAddress, gatewayPhysicalAddress, _selectedDevice);
@@ -264,7 +279,10 @@ namespace CSArp.View
             saveFileDialog1.InitialDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             saveFileDialog1.FileName = "CSArp-log";
 
-            if (saveFileDialog1.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(saveFileDialog1.FileName)) return;
+            if (saveFileDialog1.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(saveFileDialog1.FileName))
+            {
+                return;
+            }
 
             try
             {
@@ -319,7 +337,11 @@ namespace CSArp.View
 
         private bool IsProtectedTarget(ListViewItem item)
         {
-            if (item == null) return false;
+            if (item == null)
+            {
+                return false;
+            }
+
             var ip = IPAddress.Parse(item.SubItems[0].Text);
             var mac = item.SubItems[1].Text.Parse();
             return IsGatewayClient(ip) || IsSourceClient(ip, mac);
@@ -339,7 +361,10 @@ namespace CSArp.View
 
         private void clientListView_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
         {
-            if (!e.IsSelected || !IsProtectedTarget(e.Item)) return;
+            if (!e.IsSelected || !IsProtectedTarget(e.Item))
+            {
+                return;
+            }
 
             e.Item.Selected = false;
             var ip = IPAddress.Parse(e.Item.SubItems[0].Text);

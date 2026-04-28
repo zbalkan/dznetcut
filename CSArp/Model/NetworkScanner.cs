@@ -37,7 +37,7 @@ namespace CSArp.Model
 
         public NetworkScanner(Action<string> log = null)
         {
-            _log = log ?? Debug.Print;
+            _log = log ?? (msg => Debug.Print(msg));
         }
 
         public bool IsScanning
@@ -58,12 +58,23 @@ namespace CSArp.Model
             IProgress<string> statusProgress,
             IProgress<int> scanProgress)
         {
-            if (networkAdapter == null) throw new ArgumentNullException(nameof(networkAdapter));
-            if (gatewayIp == null) throw new ArgumentNullException(nameof(gatewayIp));
+            if (networkAdapter == null)
+            {
+                throw new ArgumentNullException(nameof(networkAdapter));
+            }
+
+            if (gatewayIp == null)
+            {
+                throw new ArgumentNullException(nameof(gatewayIp));
+            }
 
             lock (_stateLock)
             {
-                if (_scanCts != null && !_scanCts.IsCancellationRequested) return;
+                if (_scanCts != null && !_scanCts.IsCancellationRequested)
+                {
+                    return;
+                }
+
                 _scanCts?.Dispose();
                 _scanCts = new CancellationTokenSource();
             }
@@ -119,7 +130,11 @@ namespace CSArp.Model
                         continue;
                     }
 
-                    if (!TryExtractArpPacket(packetCapture, out var arpPacket)) continue;
+                    if (!TryExtractArpPacket(packetCapture, out var arpPacket))
+                    {
+                        continue;
+                    }
+
                     ProcessPacket(arpPacket, subnet, gatewayIp, clientProgress, statusProgress);
                 }
 
@@ -172,7 +187,11 @@ namespace CSArp.Model
                 var subnet = networkAdapter.ReadCurrentSubnet();
                 _backgroundHandler = (sender, e) =>
                 {
-                    if (cancellationToken.IsCancellationRequested || !TryExtractArpPacket(e, out var arpPacket)) return;
+                    if (cancellationToken.IsCancellationRequested || !TryExtractArpPacket(e, out var arpPacket))
+                    {
+                        return;
+                    }
+
                     ProcessPacket(arpPacket, subnet, gatewayIp, clientProgress, statusProgress);
                 };
                 networkAdapter.OnPacketArrival += _backgroundHandler;
@@ -207,7 +226,11 @@ namespace CSArp.Model
 
                 foreach (var targetIpAddress in subnet.EnumerateHosts())
                 {
-                    if (cancellationToken.IsCancellationRequested || sourceAddress.Equals(targetIpAddress) || gatewayIp.Equals(targetIpAddress)) continue;
+                    if (cancellationToken.IsCancellationRequested || sourceAddress.Equals(targetIpAddress) || gatewayIp.Equals(targetIpAddress))
+                    {
+                        continue;
+                    }
+
                     SendArpRequest(networkAdapter, targetIpAddress);
                 }
             }
@@ -228,11 +251,22 @@ namespace CSArp.Model
             IProgress<ClientDiscoveredEventArgs> clientProgress,
             IProgress<string> statusProgress)
         {
-            if (IPAddress.Any.Equals(arpPacket.SenderProtocolAddress) || !subnet.Contains(arpPacket.SenderProtocolAddress)) return;
-            if (!_arpTable.TryAdd(arpPacket.SenderProtocolAddress, arpPacket.SenderHardwareAddress)) return;
+            if (IPAddress.Any.Equals(arpPacket.SenderProtocolAddress) || !subnet.Contains(arpPacket.SenderProtocolAddress))
+            {
+                return;
+            }
+
+            if (!_arpTable.TryAdd(arpPacket.SenderProtocolAddress, arpPacket.SenderHardwareAddress))
+            {
+                return;
+            }
 
             var isGateway = arpPacket.SenderProtocolAddress.Equals(gatewayIp);
-            if (isGateway) _log("Found gateway!");
+            if (isGateway)
+            {
+                _log("Found gateway!");
+            }
+
             _log($"Added {arpPacket.SenderProtocolAddress} @ {arpPacket.SenderHardwareAddress.ToString("-")}");
             clientProgress?.Report(new ClientDiscoveredEventArgs(arpPacket.SenderProtocolAddress, arpPacket.SenderHardwareAddress, isGateway));
             statusProgress?.Report($"{_arpTable.Count} device(s) found");
@@ -254,7 +288,10 @@ namespace CSArp.Model
         {
             arpPacket = null;
             var rawcapture = packetCapture.GetPacket();
-            if (rawcapture?.Data == null || rawcapture.Data.Length == 0) return false;
+            if (rawcapture?.Data == null || rawcapture.Data.Length == 0)
+            {
+                return false;
+            }
 
             try
             {
