@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Reflection;
 using System.Windows.Forms;
 
 namespace CSArp.View
@@ -68,8 +67,7 @@ namespace CSArp.View
             this.columnHeaderMAC = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeaderCutoffStatus = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeaderClientname = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.columnHeaderSN = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
+this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.richTextBoxLog = new System.Windows.Forms.RichTextBox();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             this.stopNetworkScanToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -349,12 +347,7 @@ namespace CSArp.View
             // 
             this.columnHeaderClientname.Text = "Client Name";
             this.columnHeaderClientname.Width = 151;
-            // 
-            // columnHeaderSN
-            // 
-            this.columnHeaderSN.Text = "SN";
-            this.columnHeaderSN.Width = 50;
-            // 
+            //
             // notifyIcon1
             // 
             this.notifyIcon1.Text = "CSArp";
@@ -417,8 +410,7 @@ namespace CSArp.View
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatus;
         private System.Windows.Forms.ListView clientListView;
-        private System.Windows.Forms.ColumnHeader columnHeaderSN;
-        private System.Windows.Forms.ColumnHeader columnHeaderIP;
+private System.Windows.Forms.ColumnHeader columnHeaderIP;
         private System.Windows.Forms.ColumnHeader columnHeaderMAC;
         private System.Windows.Forms.ColumnHeader columnHeaderCutoffStatus;
         private System.Windows.Forms.ToolStripMenuItem editToolStripMenuItem;

@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -7,7 +7,6 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Windows.Forms;
 using CSArp.Model;
-using CSArp.Model.Utilities;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
@@ -27,13 +26,19 @@ namespace CSArp.View
         public ScannerForm()
         {
             InitializeComponent();
-            _arpSpoofer = new Spoofer();
-            _networkScanner = new NetworkScanner();
-            _networkScanner.ScanStarting += (_, __) => RunOnUiThread(() => clientListView.Items.Clear());
-            _networkScanner.ClientFound += (_, e) => AddClientToList(e.IpAddress, e.MacAddress, e.IsGateway);
-            _networkScanner.StatusChanged += (_, status) => RunOnUiThread(() => toolStripStatusScan.Text = status);
-            _networkScanner.ProgressChanged += (_, progress) => RunOnUiThread(() => toolStripProgressBarScan.Value = progress);
-            DebugOutput.Init(richTextBoxLog);
+            _arpSpoofer = new Spoofer(Log);
+            _networkScanner = new NetworkScanner(Log);
+        }
+
+        private void Log(string message)
+        {
+            Debug.Print(message);
+            if (IsHandleCreated)
+                BeginInvoke(new Action(() =>
+                {
+                    richTextBoxLog.AppendText($"{DateTime.Now} : {message}\n");
+                    richTextBoxLog.ScrollToCaret();
+                }));
         }
 
         private void StartNetworkScan()
@@ -44,17 +49,21 @@ namespace CSArp.View
                 return;
             }
 
-            if (!TryPrepareSelectedDevice(out var selectedDevice, out var gatewayIpAddress))
-            {
-                return;
-            }
+            if (!TryPrepareSelectedDevice(out var selectedDevice, out var gatewayIpAddress)) return;
 
             _selectedDevice = selectedDevice;
             _gatewayIpAddress = gatewayIpAddress;
 
             _arpSpoofer.StopAll();
+            clientListView.Items.Clear();
             toolStripStatus.Text = "Ready";
-            _networkScanner.StartScan(_selectedDevice, _gatewayIpAddress);
+
+            _networkScanner.StartScan(
+                _selectedDevice,
+                _gatewayIpAddress,
+                new Progress<ClientDiscoveredEventArgs>(e => AddClientToList(e.IpAddress, e.MacAddress, e.IsGateway)),
+                new Progress<string>(status => toolStripStatusScan.Text = status),
+                new Progress<int>(progress => toolStripProgressBarScan.Value = progress));
         }
 
         private bool TryPrepareSelectedDevice(out LibPcapLiveDevice selectedDevice, out IPAddress gatewayIpAddress)
@@ -117,10 +126,7 @@ namespace CSArp.View
 
         private void CloseSelectedDevice()
         {
-            if (_selectedDevice == null || !_selectedDevice.Opened)
-            {
-                return;
-            }
+            if (_selectedDevice == null || !_selectedDevice.Opened) return;
 
             try
             {
@@ -129,16 +135,13 @@ namespace CSArp.View
             }
             catch (PcapException ex)
             {
-                DebugOutput.Print("Exception while closing capture device [" + ex.Message + "]");
+                Log($"Exception while closing capture device [{ex.Message}]");
             }
         }
 
         private void DisconnectSelectedClients()
         {
-            if (clientListView.SelectedItems.Count == 0)
-            {
-                return;
-            }
+            if (clientListView.SelectedItems.Count == 0) return;
 
             var gatewayPhysicalAddress = clientListView.Items
                 .OfType<ListViewItem>()
@@ -170,10 +173,7 @@ namespace CSArp.View
 
             foreach (ListViewItem item in clientListView.SelectedItems)
             {
-                if (!IsProtectedTarget(item))
-                {
-                    item.SubItems[2].Text = "Off";
-                }
+                if (!IsProtectedTarget(item)) item.SubItems[2].Text = "Off";
             }
 
             _arpSpoofer.Start(targets, _gatewayIpAddress, gatewayPhysicalAddress, _selectedDevice);
@@ -197,7 +197,7 @@ namespace CSArp.View
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? Application.ProductVersion;
             var aboutText =
                 "CSArp\n" +
-                "Version: " + version + "\n\n" +
+                $"Version: {version}\n\n" +
                 "Authors: globalpolicy, Zafer Balkan (DeltaZulu OÜ)\n" +
                 "Copyright: Portions Copyright © 2017 globalpolicy; Copyright © 2024-2026 Zafer Balkan (DeltaZulu OÜ)\n" +
                 "License: MIT (see LICENSE file)\n\n" +
@@ -264,15 +264,12 @@ namespace CSArp.View
             saveFileDialog1.InitialDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             saveFileDialog1.FileName = "CSArp-log";
 
-            if (saveFileDialog1.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(saveFileDialog1.FileName))
-            {
-                return;
-            }
+            if (saveFileDialog1.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(saveFileDialog1.FileName)) return;
 
             try
             {
                 File.WriteAllText(saveFileDialog1.FileName, richTextBoxLog.Text);
-                DebugOutput.Print("Log saved to " + saveFileDialog1.FileName);
+                Log($"Log saved to {saveFileDialog1.FileName}");
             }
             catch (Exception ex)
             {
@@ -291,41 +288,26 @@ namespace CSArp.View
 
         private void AddClientToList(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway)
         {
-            RunOnUiThread(() =>
+            var isSourceDevice = IsSourceClient(ipAddress, macAddress);
+            var name = isGateway
+                ? "GATEWAY"
+                : isSourceDevice
+                    ? "THIS DEVICE"
+                    : ApplicationSettings.GetSavedClientNameFromMAC(macAddress.ToString("-"));
+            _ = clientListView.Items.Add(new ListViewItem(new[]
             {
-                var isSourceDevice = IsSourceClient(ipAddress, macAddress);
-                var name = isGateway
-                    ? "GATEWAY"
+                ipAddress.ToString(),
+                macAddress.ToString("-"),
+                "On",
+                name
+            })
+            {
+                ToolTipText = isGateway
+                    ? "The gateway cannot be spoofed."
                     : isSourceDevice
-                        ? "THIS DEVICE"
-                        : ApplicationSettings.GetSavedClientNameFromMAC(macAddress.ToString("-"));
-                _ = clientListView.Items.Add(new ListViewItem(new[]
-                {
-                    ipAddress.ToString(),
-                    macAddress.ToString("-"),
-                    "On",
-                    name
-                })
-                {
-                    ToolTipText = isGateway
-                        ? "The gateway cannot be spoofed."
-                        : isSourceDevice
-                            ? "The source device cannot be spoofed."
-                            : string.Empty
-                });
+                        ? "The source device cannot be spoofed."
+                        : string.Empty
             });
-        }
-
-        private bool IsSourceClient(ListViewItem item)
-        {
-            if (item == null)
-            {
-                return false;
-            }
-
-            var ip = IPAddress.Parse(item.SubItems[0].Text);
-            var mac = item.SubItems[1].Text.Parse();
-            return IsSourceClient(ip, mac);
         }
 
         private bool IsSourceClient(IPAddress ipAddress, PhysicalAddress macAddress) =>
@@ -337,24 +319,10 @@ namespace CSArp.View
 
         private bool IsProtectedTarget(ListViewItem item)
         {
-            if (item == null)
-            {
-                return false;
-            }
-
+            if (item == null) return false;
             var ip = IPAddress.Parse(item.SubItems[0].Text);
-            return IsGatewayClient(ip) || IsSourceClient(item);
-        }
-
-        private void RunOnUiThread(Action action)
-        {
-            if (InvokeRequired)
-            {
-                _ = BeginInvoke(action);
-                return;
-            }
-
-            action();
+            var mac = item.SubItems[1].Text.Parse();
+            return IsGatewayClient(ip) || IsSourceClient(ip, mac);
         }
 
         private void ExitGracefully()
@@ -371,10 +339,7 @@ namespace CSArp.View
 
         private void clientListView_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
         {
-            if (!e.IsSelected || !IsProtectedTarget(e.Item))
-            {
-                return;
-            }
+            if (!e.IsSelected || !IsProtectedTarget(e.Item)) return;
 
             e.Item.Selected = false;
             var ip = IPAddress.Parse(e.Item.SubItems[0].Text);

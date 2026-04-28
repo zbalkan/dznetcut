@@ -1,18 +1,17 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
-using CSArp.Model.Utilities;
 using PacketDotNet;
 using SharpPcap;
 using SharpPcap.LibPcap;
 
 namespace CSArp.Model
 {
-    public sealed class ClientDiscoveredEventArgs : EventArgs
+    public sealed class ClientDiscoveredEventArgs
     {
         public ClientDiscoveredEventArgs(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway)
         {
@@ -22,14 +21,13 @@ namespace CSArp.Model
         }
 
         public IPAddress IpAddress { get; }
-
         public PhysicalAddress MacAddress { get; }
-
         public bool IsGateway { get; }
     }
 
     public class NetworkScanner
     {
+        private readonly Action<string> _log;
         private readonly ConcurrentDictionary<IPAddress, PhysicalAddress> _arpTable = new ConcurrentDictionary<IPAddress, PhysicalAddress>();
         private readonly object _stateLock = new object();
 
@@ -37,13 +35,10 @@ namespace CSArp.Model
         private PacketArrivalEventHandler _backgroundHandler;
         private LibPcapLiveDevice _backgroundAdapter;
 
-        public event EventHandler ScanStarting;
-
-        public event EventHandler<ClientDiscoveredEventArgs> ClientFound;
-
-        public event EventHandler<string> StatusChanged;
-
-        public event EventHandler<int> ProgressChanged;
+        public NetworkScanner(Action<string> log = null)
+        {
+            _log = log ?? Debug.Print;
+        }
 
         public bool IsScanning
         {
@@ -56,35 +51,28 @@ namespace CSArp.Model
             }
         }
 
-        public void StartScan(LibPcapLiveDevice networkAdapter, IPAddress gatewayIp)
+        public void StartScan(
+            LibPcapLiveDevice networkAdapter,
+            IPAddress gatewayIp,
+            IProgress<ClientDiscoveredEventArgs> clientProgress,
+            IProgress<string> statusProgress,
+            IProgress<int> scanProgress)
         {
-            if (networkAdapter == null)
-            {
-                throw new ArgumentNullException(nameof(networkAdapter));
-            }
-
-            if (gatewayIp == null)
-            {
-                throw new ArgumentNullException(nameof(gatewayIp));
-            }
+            if (networkAdapter == null) throw new ArgumentNullException(nameof(networkAdapter));
+            if (gatewayIp == null) throw new ArgumentNullException(nameof(gatewayIp));
 
             lock (_stateLock)
             {
-                if (_scanCts != null && !_scanCts.IsCancellationRequested)
-                {
-                    return;
-                }
-
+                if (_scanCts != null && !_scanCts.IsCancellationRequested) return;
                 _scanCts?.Dispose();
                 _scanCts = new CancellationTokenSource();
             }
 
             _arpTable.Clear();
-            ScanStarting?.Invoke(this, EventArgs.Empty);
-            StatusChanged?.Invoke(this, "Please wait...");
-            ProgressChanged?.Invoke(this, 0);
+            statusProgress?.Report("Please wait...");
+            scanProgress?.Report(0);
 
-            _ = Task.Run(() => StartForegroundScan(networkAdapter, gatewayIp, _scanCts.Token));
+            _ = Task.Run(() => StartForegroundScan(networkAdapter, gatewayIp, _scanCts.Token, clientProgress, statusProgress, scanProgress));
         }
 
         public void StopScan()
@@ -101,12 +89,20 @@ namespace CSArp.Model
             }
         }
 
-        private async Task StartForegroundScan(LibPcapLiveDevice networkAdapter, IPAddress gatewayIp, CancellationToken cancellationToken)
+        private async Task StartForegroundScan(
+            LibPcapLiveDevice networkAdapter,
+            IPAddress gatewayIp,
+            CancellationToken cancellationToken,
+            IProgress<ClientDiscoveredEventArgs> clientProgress,
+            IProgress<string> statusProgress,
+            IProgress<int> scanProgress)
         {
             var subnet = networkAdapter.ReadCurrentSubnet();
             networkAdapter.Filter = "arp";
 
-            var sendTask = Task.Run(() => InitiateArpRequestQueue(networkAdapter, gatewayIp, cancellationToken), cancellationToken);
+            var sendTask = Task.Run(
+                () => InitiateArpRequestQueue(networkAdapter, gatewayIp, cancellationToken, clientProgress),
+                cancellationToken);
 
             try
             {
@@ -123,22 +119,18 @@ namespace CSArp.Model
                         continue;
                     }
 
-                    if (!TryExtractArpPacket(packetCapture, out var arpPacket))
-                    {
-                        continue;
-                    }
-
-                    ProcessPacket(arpPacket, subnet, gatewayIp);
+                    if (!TryExtractArpPacket(packetCapture, out var arpPacket)) continue;
+                    ProcessPacket(arpPacket, subnet, gatewayIp, clientProgress, statusProgress);
                 }
 
                 await sendTask.ConfigureAwait(false);
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    DebugOutput.Print("Discovery task finished. " + _arpTable.Count + " device(s) discovered.");
-                    StatusChanged?.Invoke(this, $"{_arpTable.Count} device(s) found");
-                    ProgressChanged?.Invoke(this, 100);
-                    StartBackgroundScan(networkAdapter, gatewayIp, cancellationToken);
+                    _log($"Discovery task finished. {_arpTable.Count} device(s) discovered.");
+                    statusProgress?.Report($"{_arpTable.Count} device(s) found");
+                    scanProgress?.Report(100);
+                    StartBackgroundScan(networkAdapter, gatewayIp, cancellationToken, clientProgress, statusProgress);
                 }
             }
             catch (OperationCanceledException)
@@ -146,13 +138,13 @@ namespace CSArp.Model
             }
             catch (PcapException ex)
             {
-                DebugOutput.Print("PcapException at foreground scan [" + ex.Message + "]");
-                StatusChanged?.Invoke(this, "Refresh for scan");
-                ProgressChanged?.Invoke(this, 0);
+                _log($"PcapException at foreground scan [{ex.Message}]");
+                statusProgress?.Report("Refresh for scan");
+                scanProgress?.Report(0);
             }
             catch (Exception ex)
             {
-                DebugOutput.Print(ex.Message);
+                _log(ex.Message);
             }
             finally
             {
@@ -167,7 +159,12 @@ namespace CSArp.Model
             }
         }
 
-        private void StartBackgroundScan(LibPcapLiveDevice networkAdapter, IPAddress gatewayIp, CancellationToken cancellationToken)
+        private void StartBackgroundScan(
+            LibPcapLiveDevice networkAdapter,
+            IPAddress gatewayIp,
+            CancellationToken cancellationToken,
+            IProgress<ClientDiscoveredEventArgs> clientProgress,
+            IProgress<string> statusProgress)
         {
             try
             {
@@ -175,24 +172,23 @@ namespace CSArp.Model
                 var subnet = networkAdapter.ReadCurrentSubnet();
                 _backgroundHandler = (sender, e) =>
                 {
-                    if (cancellationToken.IsCancellationRequested || !TryExtractArpPacket(e, out var arpPacket))
-                    {
-                        return;
-                    }
-
-                    ProcessPacket(arpPacket, subnet, gatewayIp);
+                    if (cancellationToken.IsCancellationRequested || !TryExtractArpPacket(e, out var arpPacket)) return;
+                    ProcessPacket(arpPacket, subnet, gatewayIp, clientProgress, statusProgress);
                 };
                 networkAdapter.OnPacketArrival += _backgroundHandler;
-
                 networkAdapter.StartCapture();
             }
             catch (Exception ex)
             {
-                DebugOutput.Print("Exception at background scan start [" + ex.Message + "]");
+                _log($"Exception at background scan start [{ex.Message}]");
             }
         }
 
-        private void InitiateArpRequestQueue(LibPcapLiveDevice networkAdapter, IPAddress gatewayIp, CancellationToken cancellationToken)
+        private void InitiateArpRequestQueue(
+            LibPcapLiveDevice networkAdapter,
+            IPAddress gatewayIp,
+            CancellationToken cancellationToken,
+            IProgress<ClientDiscoveredEventArgs> clientProgress)
         {
             try
             {
@@ -201,7 +197,7 @@ namespace CSArp.Model
 
                 if (_arpTable.TryAdd(sourceAddress, networkAdapter.MacAddress))
                 {
-                    ClientFound?.Invoke(this, new ClientDiscoveredEventArgs(sourceAddress, networkAdapter.MacAddress, false));
+                    clientProgress?.Report(new ClientDiscoveredEventArgs(sourceAddress, networkAdapter.MacAddress, false));
                 }
 
                 if (!sourceAddress.Equals(gatewayIp) && !cancellationToken.IsCancellationRequested)
@@ -211,45 +207,35 @@ namespace CSArp.Model
 
                 foreach (var targetIpAddress in subnet.EnumerateHosts())
                 {
-                    if (cancellationToken.IsCancellationRequested || sourceAddress.Equals(targetIpAddress) || gatewayIp.Equals(targetIpAddress))
-                    {
-                        continue;
-                    }
-
+                    if (cancellationToken.IsCancellationRequested || sourceAddress.Equals(targetIpAddress) || gatewayIp.Equals(targetIpAddress)) continue;
                     SendArpRequest(networkAdapter, targetIpAddress);
                 }
             }
             catch (PcapException ex)
             {
-                DebugOutput.Print("PcapException at InitiateArpRequestQueue [" + ex.Message + "]");
+                _log($"PcapException at InitiateArpRequestQueue [{ex.Message}]");
             }
             catch (Exception ex)
             {
-                DebugOutput.Print("Exception at InitiateArpRequestQueue [" + ex.Message + "]");
+                _log($"Exception at InitiateArpRequestQueue [{ex.Message}]");
             }
         }
 
-        private void ProcessPacket(ArpPacket arpPacket, IPV4Subnet subnet, IPAddress gatewayIp)
+        private void ProcessPacket(
+            ArpPacket arpPacket,
+            IPV4Subnet subnet,
+            IPAddress gatewayIp,
+            IProgress<ClientDiscoveredEventArgs> clientProgress,
+            IProgress<string> statusProgress)
         {
-            if (IPAddress.Any.Equals(arpPacket.SenderProtocolAddress) || !subnet.Contains(arpPacket.SenderProtocolAddress))
-            {
-                return;
-            }
-
-            if (!_arpTable.TryAdd(arpPacket.SenderProtocolAddress, arpPacket.SenderHardwareAddress))
-            {
-                return;
-            }
+            if (IPAddress.Any.Equals(arpPacket.SenderProtocolAddress) || !subnet.Contains(arpPacket.SenderProtocolAddress)) return;
+            if (!_arpTable.TryAdd(arpPacket.SenderProtocolAddress, arpPacket.SenderHardwareAddress)) return;
 
             var isGateway = arpPacket.SenderProtocolAddress.Equals(gatewayIp);
-            if (isGateway)
-            {
-                DebugOutput.Print("Found gateway!");
-            }
-
-            DebugOutput.Print("Added " + arpPacket.SenderProtocolAddress + " @ " + arpPacket.SenderHardwareAddress.ToString("-"));
-            ClientFound?.Invoke(this, new ClientDiscoveredEventArgs(arpPacket.SenderProtocolAddress, arpPacket.SenderHardwareAddress, isGateway));
-            StatusChanged?.Invoke(this, _arpTable.Count + " device(s) found");
+            if (isGateway) _log("Found gateway!");
+            _log($"Added {arpPacket.SenderProtocolAddress} @ {arpPacket.SenderHardwareAddress.ToString("-")}");
+            clientProgress?.Report(new ClientDiscoveredEventArgs(arpPacket.SenderProtocolAddress, arpPacket.SenderHardwareAddress, isGateway));
+            statusProgress?.Report($"{_arpTable.Count} device(s) found");
         }
 
         private static void SendArpRequest(LibPcapLiveDevice networkAdapter, IPAddress targetIpAddress)
@@ -268,10 +254,7 @@ namespace CSArp.Model
         {
             arpPacket = null;
             var rawcapture = packetCapture.GetPacket();
-            if (rawcapture?.Data == null || rawcapture.Data.Length == 0)
-            {
-                return false;
-            }
+            if (rawcapture?.Data == null || rawcapture.Data.Length == 0) return false;
 
             try
             {
@@ -281,12 +264,12 @@ namespace CSArp.Model
             }
             catch (IndexOutOfRangeException ex)
             {
-                DebugOutput.Print("IndexOutOfRangeException while parsing a packet [" + ex.Message + "]");
+                Debug.Print($"IndexOutOfRangeException while parsing a packet [{ex.Message}]");
                 return false;
             }
             catch (ArgumentException ex)
             {
-                DebugOutput.Print("ArgumentException while parsing a packet [" + ex.Message + "]");
+                Debug.Print($"ArgumentException while parsing a packet [{ex.Message}]");
                 return false;
             }
         }

@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
-using CSArp.Model.Utilities;
 using PacketDotNet;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -13,8 +13,14 @@ namespace CSArp.Model
 {
     public class Spoofer
     {
+        private readonly Action<string> _log;
         private CancellationTokenSource _spoofingCts;
         private int _activeTargetCount;
+
+        public Spoofer(Action<string> log = null)
+        {
+            _log = log ?? Debug.Print;
+        }
 
         public void Start(
             IReadOnlyDictionary<IPAddress, PhysicalAddress> targets,
@@ -26,19 +32,16 @@ namespace CSArp.Model
 
             if (targets == null || targets.Count == 0)
             {
-                DebugOutput.Print("Spoofing task skipped because there are no targets.");
+                _log("Spoofing task skipped because there are no targets.");
                 return;
             }
 
             _spoofingCts = new CancellationTokenSource();
             _activeTargetCount = targets.Count;
 
-            if (!networkAdapter.Opened)
-            {
-                networkAdapter.Open();
-            }
+            if (!networkAdapter.Opened) networkAdapter.Open();
 
-            DebugOutput.Print("Spoofing task started for " + _activeTargetCount + " target(s).");
+            _log($"Spoofing task started for {_activeTargetCount} target(s).");
 
             foreach (var target in targets)
             {
@@ -62,24 +65,20 @@ namespace CSArp.Model
 
         public void StopAll()
         {
-            if (_spoofingCts == null || _spoofingCts.IsCancellationRequested)
-            {
-                return;
-            }
-
+            if (_spoofingCts == null || _spoofingCts.IsCancellationRequested) return;
             _spoofingCts.Cancel();
-            DebugOutput.Print("Spoofing task stopped for " + _activeTargetCount + " target(s).");
+            _log($"Spoofing task stopped for {_activeTargetCount} target(s).");
             _activeTargetCount = 0;
         }
 
-        private static async Task SendSpoofingPacket(
+        private async Task SendSpoofingPacket(
             IPAddress ipAddress,
             PhysicalAddress physicalAddress,
             EthernetPacket ethernetPacket,
             LibPcapLiveDevice captureDevice,
             CancellationToken cancellationToken)
         {
-            DebugOutput.Print("Spoofing target " + physicalAddress + " @ " + ipAddress);
+            _log($"Spoofing target {physicalAddress.ToString("-")} @ {ipAddress}");
 
             try
             {
@@ -94,10 +93,10 @@ namespace CSArp.Model
             }
             catch (PcapException ex)
             {
-                DebugOutput.Print("PcapException @ Spoofer.SendSpoofingPacket() [" + ex.Message + "]");
+                _log($"PcapException @ Spoofer.SendSpoofingPacket() [{ex.Message}]");
             }
 
-            DebugOutput.Print("Spoofing thread terminating for " + physicalAddress + " @ " + ipAddress);
+            _log($"Spoofing thread terminating for {physicalAddress.ToString("-")} @ {ipAddress}");
         }
     }
 }
