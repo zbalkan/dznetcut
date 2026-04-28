@@ -270,6 +270,14 @@ namespace CSArp
                 return;
             }
 
+            if (_arpSpoofer.IsSpoofing)
+            {
+                _ = MessageBox.Show("Only one spoofing task can run at a time. Stop the active task first.", "Spoofing in progress", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                toolStripStatus.Text = "Stop spoofing before starting a new target.";
+                UpdateUiState();
+                return;
+            }
+
             PhysicalAddress? gatewayPhysicalAddress = null;
             foreach (ListViewItem item in clientListView.Items)
             {
@@ -639,17 +647,19 @@ namespace CSArp
         }
         private void UpdateUiState()
         {
-            var hasSelection = clientListView.SelectedItems.Count > 0;
             var hasSingleSelection = clientListView.SelectedItems.Count == 1;
             var hasSpoofing = _arpSpoofer.IsSpoofing;
             var hasScan = _networkScanner.IsScanning;
+            var hasSpoofableSelection = clientListView.SelectedItems
+                .Cast<ListViewItem>()
+                .Any(selectedItem => !IsProtectedTarget(selectedItem));
 
-            cutoffToolStripMenuItem.Enabled = hasSelection && !hasScan;
+            cutoffToolStripMenuItem.Enabled = hasSpoofableSelection && !hasScan && !hasSpoofing;
             reconnectToolStripMenuItem.Enabled = hasSpoofing;
             stopNetworkScanToolStripMenuItem.Enabled = hasScan;
             toolStripMenuItemRefreshClients.Enabled = !hasScan;
-            ClientNametoolStripMenuItem.Enabled = hasSingleSelection;
-            toolStripTextBoxClientName.Enabled = hasSingleSelection;
+            ClientNametoolStripMenuItem.Enabled = hasSingleSelection && !hasSpoofing;
+            toolStripTextBoxClientName.Enabled = hasSingleSelection && !hasSpoofing;
 
             if (hasSingleSelection)
             {
