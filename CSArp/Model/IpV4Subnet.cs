@@ -7,15 +7,8 @@ namespace CSArp.Model
 {
     public sealed class IPV4Subnet
     {
-        public IPAddress First { get; private set; }
-        public IPAddress Last { get; private set; }
-        public IPAddress NetworkAddress { get; private set; }
-        public IPAddress BroadcastAddress { get; private set; }
-
-        private readonly uint networkAddressAsUint;
-        private readonly uint broadcastAddressAsUint;
-        private readonly uint firstAddressAsUint;
-        private readonly uint lastAddressAsUint;
+        private readonly uint _networkAddress;
+        private readonly uint _broadcastAddress;
 
         public IPV4Subnet(IPAddress currentAddress, IPAddress subnetMask)
         {
@@ -47,43 +40,8 @@ namespace CSArp.Model
                 throw new ArgumentException("Subnet mask must be contiguous.", nameof(subnetMask));
             }
 
-            networkAddressAsUint = ip & mask;
-            broadcastAddressAsUint = networkAddressAsUint | ~mask;
-
-            NetworkAddress = ConvertToIPv4Address(networkAddressAsUint);
-            BroadcastAddress = ConvertToIPv4Address(broadcastAddressAsUint);
-
-            if (networkAddressAsUint < broadcastAddressAsUint)
-            {
-                firstAddressAsUint = networkAddressAsUint + 1;
-                lastAddressAsUint = broadcastAddressAsUint - 1;
-            }
-            else
-            {
-                firstAddressAsUint = networkAddressAsUint;
-                lastAddressAsUint = broadcastAddressAsUint;
-            }
-
-            First = ConvertToIPv4Address(firstAddressAsUint);
-            Last = ConvertToIPv4Address(lastAddressAsUint);
-        }
-
-        public long Count => (long)broadcastAddressAsUint - networkAddressAsUint + 1;
-
-        public long UsableHostCount {
-            get {
-                if (broadcastAddressAsUint <= networkAddressAsUint)
-                {
-                    return 1;
-                }
-
-                if (broadcastAddressAsUint - networkAddressAsUint == 1)
-                {
-                    return 0;
-                }
-
-                return (long)lastAddressAsUint - firstAddressAsUint + 1;
-            }
+            _networkAddress = ip & mask;
+            _broadcastAddress = _networkAddress | ~mask;
         }
 
         public bool Contains(IPAddress ipAddress)
@@ -99,51 +57,20 @@ namespace CSArp.Model
             }
 
             var address = ConvertToUint(ipAddress);
-            return networkAddressAsUint <= address && address <= broadcastAddressAsUint;
+            return _networkAddress <= address && address <= _broadcastAddress;
         }
 
-        public bool ContainsUsableHost(IPAddress ipAddress)
+        public IEnumerable<IPAddress> EnumerateHosts()
         {
-            if (ipAddress == null)
+            if (_networkAddress >= _broadcastAddress)
             {
-                throw new ArgumentNullException(nameof(ipAddress));
+                yield break;
             }
 
-            if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
-            {
-                return false;
-            }
-
-            if (UsableHostCount <= 0)
-            {
-                return false;
-            }
-
-            var address = ConvertToUint(ipAddress);
-            return firstAddressAsUint <= address && address <= lastAddressAsUint;
-        }
-
-        public IEnumerable<IPAddress> Enumerate()
-        {
-            for (var address = networkAddressAsUint; address <= broadcastAddressAsUint; address++)
+            for (var address = _networkAddress + 1; address < _broadcastAddress; address++)
             {
                 yield return ConvertToIPv4Address(address);
-
-                if (address == uint.MaxValue)
-                {
-                    yield break;
-                }
             }
-        }
-
-        public List<IPAddress> ToList()
-        {
-            if (Count > int.MaxValue)
-            {
-                throw new InvalidOperationException("Subnet is too large to materialize as a List<IPAddress>.");
-            }
-
-            return new List<IPAddress>(Enumerate());
         }
 
         private static bool IsContiguousMask(uint mask)

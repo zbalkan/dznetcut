@@ -55,8 +55,8 @@ namespace CSArp.View
                     }
                 }
 
-                selectedDevice = NetworkAdapterManager.WinPcapDevices.Where(dev => dev.Interface.FriendlyName != null)
-                                                                     .FirstOrDefault(dev => dev.Interface.FriendlyName.Equals(selectedInterfaceFriendlyName));
+                selectedDevice = LibPcapDeviceExtensions.GetWinPcapDevices()
+                    .FirstOrDefault(dev => string.Equals(dev.Interface.FriendlyName, selectedInterfaceFriendlyName, StringComparison.Ordinal));
             }
         }
 
@@ -142,14 +142,21 @@ namespace CSArp.View
             gatewayIpAddress = gatewayInfo?.Address;
         }
 
-        private void StartCapture()
+        private bool StartCapture()
         {
+            if (selectedDevice == null)
+            {
+                _ = MessageBox.Show("Could not initialize the selected network adapter.", "Adapter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
             var conf = new DeviceConfiguration
             {
                 Mode = DeviceModes.Promiscuous,
                 ReadTimeout = 1000
             };
             selectedDevice.Open(conf);
+            return true;
         }
 
         public void StopCapture()
@@ -186,8 +193,10 @@ namespace CSArp.View
 
                 SelectedInterfaceFriendlyName = toolStripComboBoxDevicelist.Text;
                 GetGatewayInformation();
-                StartCapture();
-                StartNetworkScan();
+                if (StartCapture())
+                {
+                    StartNetworkScan();
+                }
             }
         }
 
@@ -281,26 +290,28 @@ namespace CSArp.View
             saveFileDialog1.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
             saveFileDialog1.InitialDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             saveFileDialog1.FileName = "CSArp-log";
-            saveFileDialog1.FileOk += (object sender, System.ComponentModel.CancelEventArgs e) => {
-                if (saveFileDialog1.FileName != "" && !File.Exists(saveFileDialog1.FileName))
-                {
-                    try
-                    {
-                        File.WriteAllText(saveFileDialog1.FileName, richTextBoxLog.Text);
-                        DebugOutput.Print("Log saved to " + saveFileDialog1.FileName);
-                    }
-                    catch (Exception ex)
-                    {
-                        _ = MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
-            };
-            _ = saveFileDialog1.ShowDialog();
+
+            if (saveFileDialog1.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(saveFileDialog1.FileName))
+            {
+                return;
+            }
+
+            try
+            {
+                File.WriteAllText(saveFileDialog1.FileName, richTextBoxLog.Text);
+                DebugOutput.Print("Log saved to " + saveFileDialog1.FileName);
+            }
+            catch (Exception ex)
+            {
+                _ = MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
-        private static string[] EnumerateNetworkAdapters() => NetworkAdapterManager.WinPcapDevices.Where(device => !string.IsNullOrEmpty(device.Interface.FriendlyName))
-                                                       .Select(device => device.Interface.FriendlyName)
-                                                       .ToArray();
+        private static string[] EnumerateNetworkAdapters() => LibPcapDeviceExtensions.GetWinPcapDevices()
+            .Select(device => device.Interface.FriendlyName)
+            .Where(name => !string.IsNullOrEmpty(name))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 
         private void AddClientToList(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway) => UpdateOnUiThread(() => {
             var name = isGateway ? "GATEWAY" : ApplicationSettings.GetSavedClientNameFromMAC(macAddress.ToString("-"));

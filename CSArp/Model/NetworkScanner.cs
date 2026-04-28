@@ -179,7 +179,8 @@ namespace CSArp.Model
                     SendArpRequest(networkAdapter, gatewayIp);
                 }
 
-                foreach (var targetIpAddress in subnet.ToList())
+                var targets = subnet.EnumerateHosts();
+                foreach (var targetIpAddress in targets)
                 {
                     if (cancellationToken.IsCancellationRequested || sourceAddress.Equals(targetIpAddress) || gatewayIp.Equals(targetIpAddress))
                     {
