@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -23,6 +24,7 @@ namespace CSArp.View
         private string? _selectedInterfaceFriendlyName;
         private IPAddress? _sourceIpAddress;
         private PhysicalAddress? _sourceMacAddress;
+        private readonly Dictionary<string, ListViewItem> _clientItemsByIp = new Dictionary<string, ListViewItem>(StringComparer.Ordinal);
 
         public ScannerForm()
         {
@@ -62,6 +64,7 @@ namespace CSArp.View
 
             _arpSpoofer.StopAll();
             clientListView.Items.Clear();
+            _clientItemsByIp.Clear();
             toolStripStatus.Text = "Ready";
 
             _networkScanner.StartScan(
@@ -306,26 +309,41 @@ namespace CSArp.View
 
         private void AddClientToList(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway)
         {
+            var ipKey = ipAddress.ToString();
+            var macValue = macAddress.ToString("-");
             var isSourceDevice = IsSourceClient(ipAddress, macAddress);
             var name = isGateway
                 ? "GATEWAY"
                 : isSourceDevice
                     ? "THIS DEVICE"
-                    : ApplicationSettings.GetSavedClientNameFromMAC(macAddress.ToString("-"));
-            _ = clientListView.Items.Add(new ListViewItem(new[]
+                    : ApplicationSettings.GetSavedClientNameFromMAC(macValue);
+            var toolTip = isGateway
+                ? "The gateway cannot be spoofed."
+                : isSourceDevice
+                    ? "The source device cannot be spoofed."
+                    : string.Empty;
+
+            if (_clientItemsByIp.TryGetValue(ipKey, out var existing))
             {
-                ipAddress.ToString(),
-                macAddress.ToString("-"),
+                existing.SubItems[1].Text = macValue;
+                existing.SubItems[3].Text = name;
+                existing.ToolTipText = toolTip;
+                return;
+            }
+
+            var entry = new ListViewItem(new[]
+            {
+                ipKey,
+                macValue,
                 "On",
                 name
             })
             {
-                ToolTipText = isGateway
-                    ? "The gateway cannot be spoofed."
-                    : isSourceDevice
-                        ? "The source device cannot be spoofed."
-                        : string.Empty
-            });
+                ToolTipText = toolTip
+            };
+
+            _clientItemsByIp[ipKey] = entry;
+            _ = clientListView.Items.Add(entry);
         }
 
         private bool IsSourceClient(IPAddress ipAddress, PhysicalAddress macAddress) =>
