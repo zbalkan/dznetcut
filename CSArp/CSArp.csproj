@@ -69,7 +69,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Model\ThreadBuffer.cs" />
-    <Compile Include="Model\Extensions\WinPcapDeviceExtensions.cs" />
+    <Compile Include="Model\Extensions\LibPcapDeviceExtensions.cs" />
     <EmbeddedResource Include="View\ScannerForm.resx">
       <DependentUpon>ScannerForm.cs</DependentUpon>
     </EmbeddedResource>

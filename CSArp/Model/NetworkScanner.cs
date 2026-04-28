@@ -227,8 +227,10 @@ namespace CSArp.Model
         private void SendArpRequest(LibPcapLiveDevice networkAdapter, IPAddress targetIpAddress)
         {
             var arprequestpacket = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), targetIpAddress, networkAdapter.MacAddress, networkAdapter.ReadCurrentIpV4Address());
-            var ethernetpacket = new EthernetPacket(networkAdapter.MacAddress, "FF-FF-FF-FF-FF-FF".Parse(), EthernetType.Arp);
-            ethernetpacket.PayloadPacket = arprequestpacket;
+            var ethernetpacket = new EthernetPacket(networkAdapter.MacAddress, "FF-FF-FF-FF-FF-FF".Parse(), EthernetType.Arp)
+            {
+                PayloadPacket = arprequestpacket
+            };
             networkAdapter.SendPacket(ethernetpacket);
             Debug.WriteLine("ARP request is sent to: {0}", targetIpAddress);
         }
@@ -262,7 +264,7 @@ namespace CSArp.Model
         private static bool TryExtractArpPacket(PacketCapture e, out ArpPacket arppacket)
         {
             arppacket = null;
-            RawCapture rawcapture = e.GetPacket();
+            var rawcapture = e.GetPacket();
             if (rawcapture is null || rawcapture.Data == null || rawcapture.Data.Length == 0)
             {
                 return false;

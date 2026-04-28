@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Net;
-using System.Net.NetworkInformation;
 using SharpPcap.LibPcap;
 
 namespace CSArp.Model.Extensions
@@ -12,7 +11,7 @@ namespace CSArp.Model.Extensions
     //
     // Beware that AirPcap is an obsolete protocol. Therefore we are using only winpcap devices for now.
     // TODO: Add Mode selection: WinPcap & AirPcap.
-    public static class WinPcapDeviceExtensions
+    public static class LibPcapDeviceExtensions
     {
         public static IPV4Subnet ReadCurrentSubnet(this LibPcapLiveDevice device)
         {
@@ -23,19 +22,9 @@ namespace CSArp.Model.Extensions
             return new IPV4Subnet(currentAddress, subnetMask);
         }
 
-        public static IPAddress ReadCurrentIpV4Address(this LibPcapLiveDevice device)
-        {
+        public static IPAddress ReadCurrentIpV4Address(this LibPcapLiveDevice device) =>
             // Type information in WinPcap is plain wrong. IPv4 addresses are assumed to be IPv6 and most of the time @type is just null.
             // So, we are querying address list to find related information by looking at current behavior.
-            return device.Addresses.FirstOrDefault(addr => addr.Addr.ipAddress != null).Addr.ipAddress;
-        }
-
-        [Obsolete("Use device.MacAddress instead")]
-        public static PhysicalAddress ReadCurrentPhysicalAddress(this LibPcapLiveDevice device)
-        {
-            // Type information in WinPcap is plain wrong. IPv4 addresses are assumed to be IPv6 and most of the time @type is just null.
-            // So, we are querying address list to find related information by looking at current behavior.
-            return device.Addresses.FirstOrDefault(addr => addr.Addr.ipAddress == null).Addr.hardwareAddress;
-        }
+            device.Addresses.FirstOrDefault(addr => addr.Addr.ipAddress != null).Addr.ipAddress;
     }
 }

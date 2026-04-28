@@ -20,14 +20,10 @@ namespace CSArp.Model
 
         private static CaptureDeviceList _networkAdapters;
 
-        public static IReadOnlyList<LibPcapLiveDevice> WinPcapDevices {
-            get {
-                return NetworkAdapters
+        public static IReadOnlyList<LibPcapLiveDevice> WinPcapDevices => NetworkAdapters
                     .Where(adapter => adapter is LibPcapLiveDevice)
                     .Select(adapter => adapter as LibPcapLiveDevice)
                     .ToList()
                     .AsReadOnly();
-            }
-        }
     }
 }

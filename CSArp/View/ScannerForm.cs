@@ -193,15 +193,9 @@ namespace CSArp.View
             }
         }
 
-        private void aboutCSArpToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            _ = MessageBox.Show("Author : globalpolicy\nContact : yciloplabolg@gmail.com\nBlog : c0dew0rth.blogspot.com\nGithub : globalpolicy\nContributions are welcome!\n\nContributors:\nZafer Balkan : zafer@zaferbalkan.com", "About CSArp", MessageBoxButtons.OK);
-        }
+        private void aboutCSArpToolStripMenuItem_Click(object sender, EventArgs e) => _ = MessageBox.Show("Author : globalpolicy\nContact : yciloplabolg@gmail.com\nBlog : c0dew0rth.blogspot.com\nGithub : globalpolicy\nContributions are welcome!\n\nContributors:\nZafer Balkan : zafer@zaferbalkan.com", "About CSArp", MessageBoxButtons.OK);
 
-        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Environment.Exit(0);
-        }
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e) => Environment.Exit(0);
 
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -209,15 +203,9 @@ namespace CSArp.View
             SetSavedInterface();
         }
 
-        private void cutoffToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            DisconnectSelectedClients();
-        }
+        private void cutoffToolStripMenuItem_Click(object sender, EventArgs e) => DisconnectSelectedClients();
 
-        private void reconnectToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ReconnectClients();
-        }
+        private void reconnectToolStripMenuItem_Click(object sender, EventArgs e) => ReconnectClients();
 
         private void Form1_Resize(object sender, EventArgs e)
         {
@@ -240,10 +228,7 @@ namespace CSArp.View
             }
         }
 
-        private void toolStripMenuItemMinimize_Click(object sender, EventArgs e)
-        {
-            WindowState = FormWindowState.Minimized;
-        }
+        private void toolStripMenuItemMinimize_Click(object sender, EventArgs e) => WindowState = FormWindowState.Minimized;
 
         private void toolStripMenuItemSaveSettings_Click(object sender, EventArgs e)
         {
@@ -267,15 +252,9 @@ namespace CSArp.View
             }
         }
 
-        private void saveStripMenuItem_Click(object sender, EventArgs e)
-        {
-            SaveLog();
-        }
+        private void saveStripMenuItem_Click(object sender, EventArgs e) => SaveLog();
 
-        private void clearStripMenuItem_Click(object sender, EventArgs e)
-        {
-            richTextBoxLog.Text = "";
-        }
+        private void clearStripMenuItem_Click(object sender, EventArgs e) => richTextBoxLog.Text = "";
 
         private void notifyIcon1_OnMouseClick(object sender, EventArgs e)
         {
@@ -292,18 +271,12 @@ namespace CSArp.View
         /// Populate the available network cards. Excludes bridged network adapters, since they are not applicable to spoofing scenario
         /// <see cref="https://github.com/chmorgan/sharppcap/issues/57"/>
         /// </summary>
-        private void EnumerateNetworkAdaptersforMenu()
-        {
-            toolStripComboBoxDevicelist.Items.AddRange(EnumerateNetworkAdapters());
-        }
+        private void EnumerateNetworkAdaptersforMenu() => toolStripComboBoxDevicelist.Items.AddRange(EnumerateNetworkAdapters());
 
         /// <summary>
         /// Sets the text of interface list combobox to saved value if present
         /// </summary>
-        private void SetSavedInterface()
-        {
-            toolStripComboBoxDevicelist.Text = ApplicationSettings.GetSavedPreferredInterfaceFriendlyName() ?? string.Empty;
-        }
+        private void SetSavedInterface() => toolStripComboBoxDevicelist.Text = ApplicationSettings.GetSavedPreferredInterfaceFriendlyName() ?? string.Empty;
 
         private void SaveLog()
         {
@@ -327,12 +300,9 @@ namespace CSArp.View
             _ = saveFileDialog1.ShowDialog();
         }
 
-        private static string[] EnumerateNetworkAdapters()
-        {
-            return NetworkAdapterManager.WinPcapDevices.Where(device => !string.IsNullOrEmpty(device.Interface.FriendlyName))
+        private static string[] EnumerateNetworkAdapters() => NetworkAdapterManager.WinPcapDevices.Where(device => !string.IsNullOrEmpty(device.Interface.FriendlyName))
                                                        .Select(device => device.Interface.FriendlyName)
                                                        .ToArray();
-        }
 
         private void ExitGracefully()
         {

@@ -6,24 +6,13 @@ namespace CSArp.Model
 {
     public static class ThreadBuffer
     {
-        public static int Count {
-            get {
-                return buffer.Count;
-            }
-        }
+        public static int Count => buffer.Count;
 
-        public static int AliveCount {
-            get {
-                return buffer.Count(t => t.IsAlive);
-            }
-        }
+        public static int AliveCount => buffer.Count(t => t.IsAlive);
 
         private static List<Thread> buffer;
 
-        public static void Init()
-        {
-            buffer = new List<Thread>();
-        }
+        public static void Init() => buffer = new List<Thread>();
 
         public static void Add(Thread thread)
         {

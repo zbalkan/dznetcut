@@ -8,10 +8,7 @@ namespace CSArp.Model.Utilities
     {
         private static RichTextBox _logTextBox;
 
-        public static void Init(RichTextBox logTextBox)
-        {
-            _logTextBox = logTextBox ?? throw new ArgumentNullException(nameof(logTextBox));
-        }
+        public static void Init(RichTextBox logTextBox) => _logTextBox = logTextBox ?? throw new ArgumentNullException(nameof(logTextBox));
 
         public static void Print(string output)
         {

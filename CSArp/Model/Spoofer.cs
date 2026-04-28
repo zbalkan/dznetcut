@@ -4,6 +4,7 @@ using System.Net.NetworkInformation;
 using System.Threading;
 using CSArp.Model.Extensions;
 using CSArp.Model.Utilities;
+using CSArp.View;
 using PacketDotNet;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -29,9 +30,11 @@ namespace CSArp.Model
             foreach (var target in targetlist)
             {
                 var myipaddress = networkAdapter.ReadCurrentIpV4Address();
-                var arppacketforgatewayrequest = new ArpPacket(ArpOperation.Request, PhysicalAddress.Parse("00-00-00-00-00-00"), gatewayipaddress, networkAdapter.MacAddress, target.Key);
-                var ethernetpacketforgatewayrequest = new EthernetPacket(networkAdapter.MacAddress, gatewaymacaddress, EthernetType.Arp);
-                ethernetpacketforgatewayrequest.PayloadPacket = arppacketforgatewayrequest;
+                var arppacketforgatewayrequest = new ArpPacket(ArpOperation.Request, "00-00-00-00-00-00".Parse(), gatewayipaddress, networkAdapter.MacAddress, target.Key);
+                var ethernetpacketforgatewayrequest = new EthernetPacket(networkAdapter.MacAddress, gatewaymacaddress, EthernetType.Arp)
+                {
+                    PayloadPacket = arppacketforgatewayrequest
+                };
                 ThreadBuffer.Add(new Thread(() =>
                     SendSpoofingPacket(target.Key, target.Value, ethernetpacketforgatewayrequest, networkAdapter)
                   ));
@@ -43,10 +46,7 @@ namespace CSArp.Model
         public void StopAll()
         {
             disengageflag = true;
-            if (engagedclientlist != null)
-            {
-                engagedclientlist.Clear();
-            }
+            engagedclientlist?.Clear();
         }
 
         private void SendSpoofingPacket(IPAddress ipAddress, PhysicalAddress physicalAddress, EthernetPacket ethernetpacketforgatewayrequest, LibPcapLiveDevice captureDevice)

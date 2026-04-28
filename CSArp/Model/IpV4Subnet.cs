@@ -49,11 +49,7 @@ namespace CSArp.Model
             lastAddressAsUint = ConvertToUint(Last);
         }
 
-        public int Count {
-            get {
-                return (int)(lastAddressAsUint - firstAddressAsUint + 1);
-            }
-        }
+        public int Count => (int)(lastAddressAsUint - firstAddressAsUint + 1);
 
         public bool Contains(IPAddress ipaddress)
         {
