@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -29,6 +30,11 @@ namespace dznetcut.CLI
 
             if (arguments.Command == null)
             {
+                if (!string.IsNullOrWhiteSpace(arguments.ParseError))
+                {
+                    _writeLine(arguments.ParseError!);
+                }
+
                 _writeLine(CliHelpText.Build());
                 return 2;
             }
@@ -73,9 +79,12 @@ namespace dznetcut.CLI
                 return 2;
             }
 
-            var durationSeconds = TryGetIntOption(arguments, "duration", 30);
+            if (!TryGetDurationSeconds(arguments, out var durationSeconds))
+            {
+                return 2;
+            }
             var scanner = new NetworkScanner(_writeLine);
-            var hosts = new Dictionary<string, ClientDiscoveredEventArgs>(StringComparer.Ordinal);
+            var hosts = new ConcurrentDictionary<string, ClientDiscoveredEventArgs>(StringComparer.Ordinal);
 
             scanner.StartScan(
                 adapter,
@@ -89,7 +98,7 @@ namespace dznetcut.CLI
                 scanner.StopScan();
             }
 
-            foreach (var host in hosts.Values.OrderBy(h => h.IpAddress.ToString(), StringComparer.Ordinal))
+            foreach (var host in hosts.Values.ToArray().OrderBy(h => h.IpAddress.ToString(), StringComparer.Ordinal))
             {
                 _writeLine($"{host.IpAddress} | {host.MacAddress.ToString("-")} | confidence={host.ConfidenceScore} | gateway={host.IsGateway}");
             }
@@ -126,7 +135,10 @@ namespace dznetcut.CLI
             var arpProtectionEnabled = !arguments.Options.ContainsKey("no-arp-protection");
             _writeLine($"ARP protection: {(arpProtectionEnabled ? "enabled" : "disabled")}");
 
-            var durationSeconds = TryGetIntOption(arguments, "duration", 30);
+            if (!TryGetDurationSeconds(arguments, out var durationSeconds))
+            {
+                return 2;
+            }
             var gatewayMac = gatewayMacText!.Parse();
             var targets = ParseTargets(targetText!);
 
@@ -238,9 +250,16 @@ namespace dznetcut.CLI
             var options = AdapterInventoryService.BuildAdapterOptions(devices.ToArray());
             var selectedOption = options.FirstOrDefault(o => string.Equals(o.DeviceId, adapterValue, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(o.DisplayText, adapterValue, StringComparison.OrdinalIgnoreCase));
-            return selectedOption == null
+            var resolved = selectedOption == null
                 ? devices.FirstOrDefault(d => string.Equals(d.Interface?.FriendlyName, adapterValue, StringComparison.OrdinalIgnoreCase))
                 : devices.FirstOrDefault(d => string.Equals(d.Name, selectedOption.DeviceId, StringComparison.OrdinalIgnoreCase));
+
+            if (resolved == null)
+            {
+                _writeLine($"Unable to resolve adapter '{adapterValue}'. Run list-adapters to inspect available IDs.");
+            }
+
+            return resolved;
         }
 
         private static bool TryGetIpOption(CliArguments arguments, string key, out IPAddress ip)
@@ -252,6 +271,18 @@ namespace dznetcut.CLI
         private static int TryGetIntOption(CliArguments arguments, string key, int fallback) => arguments.TryGetOption(key, out var value) && int.TryParse(value, out var parsed)
                 ? parsed
                 : fallback;
+
+        private bool TryGetDurationSeconds(CliArguments arguments, out int durationSeconds)
+        {
+            durationSeconds = TryGetIntOption(arguments, "duration", 30);
+            if (durationSeconds < 1)
+            {
+                _writeLine("duration must be a positive integer number of seconds.");
+                return false;
+            }
+
+            return true;
+        }
 
     }
 }

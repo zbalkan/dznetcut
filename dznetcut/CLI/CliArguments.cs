@@ -50,6 +50,18 @@ namespace dznetcut.CLI
                         return new CliArguments(showHelp: false, launchGui: true, command: null, options, positionals, parseError: null);
                     }
 
+                    if (string.Equals(token, "--verbose", StringComparison.OrdinalIgnoreCase))
+                    {
+                        options["verbose"] = null;
+                        continue;
+                    }
+
+                    if (string.Equals(token, "--no-arp-protection", StringComparison.OrdinalIgnoreCase))
+                    {
+                        options["no-arp-protection"] = null;
+                        continue;
+                    }
+
                     var separatorIndex = token.IndexOf('=');
                     if (separatorIndex > 2)
                     {
@@ -91,6 +103,8 @@ namespace dznetcut.CLI
                         options["no-arp-protection"] = null;
                         continue;
                     }
+
+                    return new CliArguments(showHelp: false, launchGui: false, command: null, options, positionals, parseError: $"Unknown option: {token}");
                 }
 
                 positionals.Add(token);
