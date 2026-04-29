@@ -7,6 +7,28 @@ namespace dznetcut.Tests
     public class CliArgumentsTests
     {
         [TestMethod]
+        public void Parse_GuiFlag_LaunchesGui()
+        {
+            var args = CliArguments.Parse(new[] { "--gui" });
+
+            Assert.IsTrue(args.LaunchGui);
+            Assert.IsFalse(args.ShowHelp);
+            Assert.IsNull(args.Command);
+        }
+
+        [TestMethod]
+        public void Parse_HelpFlags_ShowHelp()
+        {
+            var longForm = CliArguments.Parse(new[] { "--help" });
+            var shortForm = CliArguments.Parse(new[] { "-h" });
+
+            Assert.IsTrue(longForm.ShowHelp);
+            Assert.IsTrue(shortForm.ShowHelp);
+            Assert.IsFalse(longForm.LaunchGui);
+            Assert.IsFalse(shortForm.LaunchGui);
+        }
+
+        [TestMethod]
         public void Parse_NoArgs_LaunchesGui()
         {
             var args = CliArguments.Parse(System.Array.Empty<string>());
@@ -14,6 +36,27 @@ namespace dznetcut.Tests
             Assert.IsTrue(args.LaunchGui);
             Assert.IsFalse(args.ShowHelp);
             Assert.IsNull(args.Command);
+        }
+
+        [TestMethod]
+        public void Parse_NoArpProtectionFlags_AreRecognized()
+        {
+            var longForm = CliArguments.Parse(new[] { "cut", "--no-arp-protection" });
+            var shortForm = CliArguments.Parse(new[] { "cut", "-nap" });
+
+            Assert.IsTrue(longForm.Options.ContainsKey("no-arp-protection"));
+            Assert.IsTrue(shortForm.Options.ContainsKey("no-arp-protection"));
+        }
+
+        [TestMethod]
+        public void Parse_OptionNames_AreCaseInsensitive()
+        {
+            var args = CliArguments.Parse(new[] { "scan", "--Adapter", "Ethernet" });
+
+            Assert.IsTrue(args.TryGetOption("adapter", out var lower));
+            Assert.IsTrue(args.TryGetOption("ADAPTER", out var upper));
+            Assert.AreEqual("Ethernet", lower);
+            Assert.AreEqual("Ethernet", upper);
         }
 
         [TestMethod]
@@ -31,26 +74,6 @@ namespace dznetcut.Tests
         }
 
         [TestMethod]
-        public void Parse_VerboseFlags_AreRecognized()
-        {
-            var longForm = CliArguments.Parse(new[] { "scan", "--verbose" });
-            var shortForm = CliArguments.Parse(new[] { "scan", "-v" });
-
-            Assert.IsTrue(longForm.Options.ContainsKey("verbose"));
-            Assert.IsTrue(shortForm.Options.ContainsKey("verbose"));
-        }
-
-        [TestMethod]
-        public void Parse_NoArpProtectionFlags_AreRecognized()
-        {
-            var longForm = CliArguments.Parse(new[] { "cut", "--no-arp-protection" });
-            var shortForm = CliArguments.Parse(new[] { "cut", "-nap" });
-
-            Assert.IsTrue(longForm.Options.ContainsKey("no-arp-protection"));
-            Assert.IsTrue(shortForm.Options.ContainsKey("no-arp-protection"));
-        }
-
-        [TestMethod]
         public void Parse_UnknownShortFlag_ReturnsParseError()
         {
             var args = CliArguments.Parse(new[] { "scan", "-oops" });
@@ -58,6 +81,16 @@ namespace dznetcut.Tests
             Assert.AreEqual("Unknown option: -oops", args.ParseError);
             Assert.IsNull(args.Command);
             Assert.IsFalse(args.ShowHelp);
+        }
+
+        [TestMethod]
+        public void Parse_VerboseFlags_AreRecognized()
+        {
+            var longForm = CliArguments.Parse(new[] { "scan", "--verbose" });
+            var shortForm = CliArguments.Parse(new[] { "scan", "-v" });
+
+            Assert.IsTrue(longForm.Options.ContainsKey("verbose"));
+            Assert.IsTrue(shortForm.Options.ContainsKey("verbose"));
         }
     }
 }

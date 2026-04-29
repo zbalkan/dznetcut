@@ -38,6 +38,23 @@ namespace dznetcut.Tests
         }
 
         [TestMethod]
+        public void BuildOptions_NoMatchingInterface_UsesNoIpv4DisplayAndNullGateway()
+        {
+            var devices = new[]
+            {
+                new AdapterDeviceSnapshot("dev-1", "Adapter A", null, null)
+            };
+
+            var options = AdapterSelectionService.BuildOptions(devices, interfaces: new InterfaceSnapshot[0]);
+
+            Assert.HasCount(1, options);
+            Assert.AreEqual("Adapter A [No IPv4]", options[0].DisplayText);
+            Assert.IsNull(options[0].InterfaceId);
+            Assert.IsNull(options[0].GatewayIpAddress);
+            Assert.IsFalse(options[0].IsPhysical);
+        }
+
+        [TestMethod]
         public void FilterOptions_DefaultsToPhysicalOnly()
         {
             var options = new[]
@@ -79,6 +96,38 @@ namespace dznetcut.Tests
 
             Assert.IsEmpty(filtered);
         }
+
+        [TestMethod]
+        public void IsInterfaceMatch_FallsBackToIpMatch_WhenMacDoesNotMatch()
+        {
+            var networkInterface = new InterfaceSnapshot(
+                "if-1",
+                "Ethernet",
+                PhysicalAddress.Parse("AABBCCDDEEFF"),
+                NetworkInterfaceType.Ethernet,
+                isPhysicalAdapter: true,
+                new[] { IPAddress.Parse("192.168.1.20") },
+                new[] { IPAddress.Parse("192.168.1.1") });
+
+            var result = AdapterSelectionService.IsInterfaceMatch(
+                networkInterface,
+                IPAddress.Parse("192.168.1.20"),
+                PhysicalAddress.Parse("001122334455"));
+
+            Assert.IsTrue(result);
+        }
+
+        [TestMethod]
+        public void IsLikelyPhysicalAdapter_RejectsZeroMacAndLoopback()
+        {
+            var zeroMac = PhysicalAddress.Parse("000000000000");
+            var validMac = PhysicalAddress.Parse("001122334455");
+
+            Assert.IsFalse(AdapterSelectionService.IsLikelyPhysicalAdapter(NetworkInterfaceType.Ethernet, zeroMac));
+            Assert.IsFalse(AdapterSelectionService.IsLikelyPhysicalAdapter(NetworkInterfaceType.Loopback, validMac));
+            Assert.IsTrue(AdapterSelectionService.IsLikelyPhysicalAdapter(NetworkInterfaceType.Ethernet, validMac));
+        }
+
         [TestMethod]
         public void IsLikelyPhysicalPnpDeviceId_RecognizesPhysicalBusPrefixes()
         {
