@@ -33,6 +33,7 @@ namespace dznetcut
         private string? _selectedInterfaceFriendlyName;
         private IPAddress? _sourceIpAddress;
         private PhysicalAddress? _sourceMacAddress;
+
         public ScannerForm()
         {
             InitializeComponent();
@@ -43,34 +44,7 @@ namespace dznetcut
             _networkScanner.ScanStateChanged += _ => SafeUpdateUiState();
         }
 
-        private static IReadOnlyList<AdapterSelectionOptionModel> BuildAdapterOptions(IReadOnlyList<LibPcapLiveDevice> devices)
-        {
-            var systemInterfaces = NetworkInterface.GetAllNetworkInterfaces();
-            var physicalByInterfaceId = AdapterPhysicalClassifier.BuildByInterfaceId(systemInterfaces);
-            var networkInterfaces = systemInterfaces
-                .Select(networkInterface =>
-                    new InterfaceSnapshot(
-                        networkInterface.Id,
-                        networkInterface.Name,
-                        networkInterface.GetPhysicalAddress(),
-                        networkInterface.NetworkInterfaceType,
-                        physicalByInterfaceId.TryGetValue(networkInterface.Id, out var isPhysical)
-                            ? isPhysical
-                            : AdapterSelectionService.IsLikelyPhysicalAdapter(networkInterface.NetworkInterfaceType, networkInterface.GetPhysicalAddress()),
-                        networkInterface.GetIPProperties().UnicastAddresses.Select(address => address.Address).ToArray(),
-                        networkInterface.GetIPProperties().GatewayAddresses.Select(address => address.Address).ToArray()))
-                .ToArray();
-            var deviceSnapshots = devices
-                .Select(device =>
-                    new AdapterDeviceSnapshot(
-                        device.Name,
-                        device.Interface?.FriendlyName ?? device.Name,
-                        TryReadDeviceIpv4(device),
-                        device.MacAddress))
-                .ToArray();
-
-            return AdapterSelectionService.BuildOptions(deviceSnapshots, networkInterfaces);
-        }
+        private static IReadOnlyList<AdapterSelectionOptionModel> BuildAdapterOptions(IReadOnlyList<LibPcapLiveDevice> devices) => AdapterInventoryService.BuildAdapterOptions(devices);
 
         private static bool TryReadClientIdentity(ListViewItem? item, out IPAddress ipAddress, out PhysicalAddress macAddress)
         {
@@ -87,7 +61,7 @@ namespace dznetcut
                 return false;
             }
 
-            if (!IPAddress.TryParse(item.SubItems[0].Text, out var parsedIpAddress))
+            if (!IPAddress.TryParse(item!.SubItems[0].Text, out var parsedIpAddress))
             {
                 return false;
             }
@@ -102,18 +76,6 @@ namespace dznetcut
             catch (FormatException)
             {
                 return false;
-            }
-        }
-
-        private static IPAddress? TryReadDeviceIpv4(LibPcapLiveDevice device)
-        {
-            try
-            {
-                return device.ReadCurrentIpV4Address();
-            }
-            catch (InvalidOperationException)
-            {
-                return null;
             }
         }
 
@@ -205,6 +167,22 @@ namespace dznetcut
             richTextBoxLog.Visible = showLog;
             clientListView.Height = showLog ? Height - 184 : Height - 93;
             AdjustClientListViewLayout();
+        }
+
+        private ArpProtectionService BuildArpProtectionService(IPAddress gatewayIpAddress, PhysicalAddress gatewayPhysicalAddress)
+        {
+            if (string.IsNullOrWhiteSpace(_selectedInterfaceFriendlyName)
+                || !_adapterOptionsByDisplayText.TryGetValue(_selectedInterfaceFriendlyName!, out var selectedOption)
+                || string.IsNullOrWhiteSpace(selectedOption.InterfaceId))
+            {
+                throw new InvalidOperationException("Cannot map selected interface to a Windows network adapter.");
+            }
+
+            var networkInterface = NetworkInterface.GetAllNetworkInterfaces()
+                .FirstOrDefault(nic => string.Equals(nic.Id, selectedOption.InterfaceId, StringComparison.Ordinal));
+            var ipv4Properties = (networkInterface?.GetIPProperties().GetIPv4Properties()) ?? throw new InvalidOperationException("Cannot resolve selected interface index.");
+            var binding = new GatewayBinding(gatewayIpAddress, gatewayPhysicalAddress, ipv4Properties.Index);
+            return new ArpProtectionService(binding);
         }
 
         private string BuildUniqueDisplayText(AdapterSelectionOptionModel option)
@@ -422,7 +400,7 @@ namespace dznetcut
             var captureReady = LibPcapDeviceExtensions.TryGetWinPcapDevices(out var winPcapDevices, out var captureError);
             if (!captureReady && !string.IsNullOrWhiteSpace(captureError))
             {
-                Log(captureError);
+                Log(captureError!);
             }
 
             var options = BuildAdapterOptions(winPcapDevices);
@@ -488,6 +466,19 @@ namespace dznetcut
 
         private void reconnectToolStripMenuItem_Click(object sender, EventArgs e) => ReconnectClients();
 
+        private PhysicalAddress ResolveGatewayMacFromList()
+        {
+            foreach (ListViewItem item in clientListView.Items)
+            {
+                if (item.SubItems[0].Text == _gatewayIpAddress?.ToString())
+                {
+                    return item.SubItems[1].Text.Parse();
+                }
+            }
+
+            throw new InvalidOperationException("Gateway MAC address is unavailable.");
+        }
+
         private void RunOnUiThread(Action action)
         {
             if (!IsHandleCreated || IsDisposed)
@@ -544,88 +535,6 @@ namespace dznetcut
             }
         }
 
-        private void toolStripMenuItemArpProtection_CheckStateChanged(object sender, EventArgs e)
-        {
-            if (!toolStripMenuItemArpProtection.Checked)
-            {
-                TryDisableArpProtection();
-            }
-        }
-
-        private void TryDisableArpProtection()
-        {
-            if (!_isArpProtectionApplied || _gatewayIpAddress == null)
-            {
-                return;
-            }
-
-            try
-            {
-                var service = BuildArpProtectionService(_gatewayIpAddress, ResolveGatewayMacFromList());
-                service.Enabled = false;
-                _isArpProtectionApplied = false;
-                Log("ARP protection disabled.");
-            }
-            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException)
-            {
-                Log($"Unable to disable ARP protection: {ex.Message}");
-            }
-        }
-
-        private void TryEnableArpProtection(PhysicalAddress gatewayPhysicalAddress)
-        {
-            if (_gatewayIpAddress == null)
-            {
-                return;
-            }
-
-            try
-            {
-                var service = BuildArpProtectionService(_gatewayIpAddress, gatewayPhysicalAddress);
-                service.Enabled = true;
-                _isArpProtectionApplied = true;
-                Log("ARP protection enabled.");
-            }
-            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException)
-            {
-                Log($"Unable to enable ARP protection: {ex.Message}");
-            }
-        }
-
-        private ArpProtectionService BuildArpProtectionService(IPAddress gatewayIpAddress, PhysicalAddress gatewayPhysicalAddress)
-        {
-            if (string.IsNullOrWhiteSpace(_selectedInterfaceFriendlyName)
-                || !_adapterOptionsByDisplayText.TryGetValue(_selectedInterfaceFriendlyName, out var selectedOption)
-                || string.IsNullOrWhiteSpace(selectedOption.InterfaceId))
-            {
-                throw new InvalidOperationException("Cannot map selected interface to a Windows network adapter.");
-            }
-
-            var networkInterface = NetworkInterface.GetAllNetworkInterfaces()
-                .FirstOrDefault(nic => string.Equals(nic.Id, selectedOption.InterfaceId, StringComparison.Ordinal));
-            var ipv4Properties = networkInterface?.GetIPProperties().GetIPv4Properties();
-            if (ipv4Properties == null)
-            {
-                throw new InvalidOperationException("Cannot resolve selected interface index.");
-            }
-
-            var binding = new GatewayBinding(gatewayIpAddress, gatewayPhysicalAddress, ipv4Properties.Index);
-            return new ArpProtectionService(binding);
-        }
-
-        private PhysicalAddress ResolveGatewayMacFromList()
-        {
-            foreach (ListViewItem item in clientListView.Items)
-            {
-                if (item.SubItems[0].Text == _gatewayIpAddress?.ToString())
-                {
-                    return item.SubItems[1].Text.Parse();
-                }
-            }
-
-            throw new InvalidOperationException("Gateway MAC address is unavailable.");
-        }
-
         private void showLogToolStripMenuItem_CheckStateChanged(object sender, EventArgs e) => ApplyLogVisibility(showLogToolStripMenuItem.Checked);
 
         private void StartNetworkScan()
@@ -679,6 +588,14 @@ namespace dznetcut
             toolStripStatus.Text = "Scan stopped!";
         }
 
+        private void toolStripMenuItemArpProtection_CheckStateChanged(object sender, EventArgs e)
+        {
+            if (!toolStripMenuItemArpProtection.Checked)
+            {
+                TryDisableArpProtection();
+            }
+        }
+
         private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e) => StartNetworkScan();
 
         private void toolStripMenuItemSaveSettings_Click(object sender, EventArgs e)
@@ -699,6 +616,46 @@ namespace dznetcut
                 selectedItem.SubItems[3].Text = toolStripTextBoxClientName.Text;
                 toolStripTextBoxClientName.Text = string.Empty;
                 UpdateUiState();
+            }
+        }
+
+        private void TryDisableArpProtection()
+        {
+            if (!_isArpProtectionApplied || _gatewayIpAddress == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var service = BuildArpProtectionService(_gatewayIpAddress, ResolveGatewayMacFromList());
+                service.Enabled = false;
+                _isArpProtectionApplied = false;
+                Log("ARP protection disabled.");
+            }
+            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException)
+            {
+                Log($"Unable to disable ARP protection: {ex.Message}");
+            }
+        }
+
+        private void TryEnableArpProtection(PhysicalAddress gatewayPhysicalAddress)
+        {
+            if (_gatewayIpAddress == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var service = BuildArpProtectionService(_gatewayIpAddress, gatewayPhysicalAddress);
+                service.Enabled = true;
+                _isArpProtectionApplied = true;
+                Log("ARP protection enabled.");
+            }
+            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException)
+            {
+                Log($"Unable to enable ARP protection: {ex.Message}");
             }
         }
 
@@ -768,6 +725,7 @@ namespace dznetcut
 
             return true;
         }
+
         private void UpdateUiState()
         {
             var hasSingleSelection = clientListView.SelectedItems.Count == 1;

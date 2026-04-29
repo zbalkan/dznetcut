@@ -26,15 +26,25 @@ The scanner correlates evidence from multiple protocols (ARP, ICMP, passive traf
 - **ARP protection safeguards** that block spoofing against protected identities (your source host and the detected gateway).
 - **Saved device labels** so known MAC addresses can be named in the UI.
 
----
+## CLI
 
-## Architecture overview
+`dznetcut` now supports CLI entry routing in the same executable:
 
-- `ScannerForm` orchestrates UI state, adapter selection, scan lifecycle, and spoof lifecycle.
-- `NetworkScanner` performs active + passive discovery and emits discovered host events.
-- `EvidenceStore` deduplicates host evidence and computes confidence scores.
-- `Spoofer` manages per-target ARP poisoning tasks and cancellation.
+- Launch GUI (default): `dznetcut`
+- Force GUI: `dznetcut --gui`
+- Show CLI help: `dznetcut --help`
+- List adapters: `dznetcut list-adapters`
+- Scan: `dznetcut scan --adapter "Ethernet" --gateway-ip 192.168.1.1 --duration 25`
+- Cut: `dznetcut cut --adapter "Ethernet" --gateway-ip 192.168.1.1 --gateway-mac AA-BB-CC-DD-EE-FF --target 192.168.1.42@11-22-33-44-55-66 --duration 30`
 
+CLI command surface includes `scan`, `cut`, and `stop`.
+
+### ARP protection flag
+
+For CLI `cut` mode, ARP protection is enabled by default.
+To disable it, use:
+
+- `--no-arp-protection` (or `-nap`)
 ---
 
 ## Requirements
