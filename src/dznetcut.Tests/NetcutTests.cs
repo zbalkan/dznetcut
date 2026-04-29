@@ -53,11 +53,11 @@ namespace dznetcut.Tests
         }
 
         [TestMethod]
-        public void Spoofer_DefaultState_IsNotSpoofing()
+        public void TrafficCutter_DefaultState_IsNotCuttingTraffic()
         {
-            var spoofer = new Spoofer();
+            var trafficCutter = new TrafficCutter();
 
-            Assert.IsFalse(spoofer.IsSpoofing);
+            Assert.IsFalse(trafficCutter.IsTrafficCutActive);
         }
 
         [TestCleanup]

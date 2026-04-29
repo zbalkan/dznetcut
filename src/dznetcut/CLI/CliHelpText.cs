@@ -12,8 +12,8 @@ Commands:
   help              Show CLI help
   list-adapters     List capture adapters
   scan              Discover hosts
-  cut               Start spoofing targets
-  stop              Stop spoofing
+  cut               Start cutting target traffic
+  stop              Restore target traffic
 
 Global options:
   --help, -h        Show help

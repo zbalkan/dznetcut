@@ -18,7 +18,7 @@ namespace dznetcut.GUI
     public partial class ScannerForm : Form
     {
         private readonly Dictionary<string, AdapterSelectionOptionModel> _adapterOptionsByDisplayText = new Dictionary<string, AdapterSelectionOptionModel>(StringComparer.Ordinal);
-        private readonly Spoofer _arpSpoofer;
+        private readonly TrafficCutter _arpTrafficCutter;
         private readonly Dictionary<string, ListViewItem> _clientItemsByIp = new Dictionary<string, ListViewItem>(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _displayTextByDeviceId = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly NetworkScanner _networkScanner;
@@ -35,9 +35,9 @@ namespace dznetcut.GUI
         public ScannerForm()
         {
             InitializeComponent();
-            _arpSpoofer = new Spoofer(Log);
+            _arpTrafficCutter = new TrafficCutter(Log);
             _networkScanner = new NetworkScanner(Log);
-            _arpSpoofer.SpoofingStateChanged += _ => SafeUpdateUiState();
+            _arpTrafficCutter.TrafficCutStateChanged += _ => SafeUpdateUiState();
             _networkScanner.ScanStateChanged += _ => SafeUpdateUiState();
         }
 
@@ -101,9 +101,9 @@ namespace dznetcut.GUI
                     ? "THIS DEVICE"
                     : ApplicationSettings.GetSavedClientNameFromMAC(macValue);
             var toolTip = isGateway
-                ? "The gateway cannot be spoofed."
+                ? "The gateway cannot be selected as a traffic-cut target."
                 : isSourceDevice
-                    ? "The source device cannot be spoofed."
+                    ? "The source device cannot be selected as a traffic-cut target."
                     : string.Empty;
 
             if (_clientItemsByIp.TryGetValue(ipKey, out var existing))
@@ -121,7 +121,7 @@ namespace dznetcut.GUI
             {
                 ipKey,
                 macValue,
-                "On",
+                "Normal",
                 name
             })
             {
@@ -215,8 +215,8 @@ namespace dznetcut.GUI
             e.Item.Selected = false;
             var ip = IPAddress.Parse(e.Item.SubItems[0].Text);
             toolStripStatus.Text = IsGatewayClient(ip)
-                ? "The gateway cannot be spoofed."
-                : "The source device cannot be spoofed.";
+                ? "The gateway cannot be selected as a traffic-cut target."
+                : "The source device cannot be selected as a traffic-cut target.";
             UpdateUiState();
         }
 
@@ -249,10 +249,10 @@ namespace dznetcut.GUI
                 return;
             }
 
-            if (_arpSpoofer.IsSpoofing)
+            if (_arpTrafficCutter.IsTrafficCutActive)
             {
-                _ = MessageBox.Show("Only one spoofing task can run at a time. Stop the active task first.", "Spoofing in progress", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                toolStripStatus.Text = "Stop spoofing before starting a new target.";
+                _ = MessageBox.Show("Only one traffic-cut task can run at a time. Restore traffic for the active task first.", "Traffic cut in progress", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                toolStripStatus.Text = "Restore traffic before starting a new target.";
                 UpdateUiState();
                 return;
             }
@@ -268,7 +268,7 @@ namespace dznetcut.GUI
                 return;
             }
 
-            toolStripStatus.Text = "Arpspoofing active...";
+            toolStripStatus.Text = "Traffic cut active...";
 
             var targets = new Dictionary<IPAddress, PhysicalAddress>();
             var spoofableSelectedItems = new List<ListViewItem>();
@@ -290,14 +290,14 @@ namespace dznetcut.GUI
 
             if (targets.Count == 0)
             {
-                _ = MessageBox.Show("You cannot spoof the source device or the gateway.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _ = MessageBox.Show("You cannot cut traffic for the source device or the gateway.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 toolStripStatus.Text = "Select a different target.";
                 return;
             }
 
             foreach (var item in spoofableSelectedItems)
             {
-                item.SubItems[2].Text = "Off";
+                item.SubItems[2].Text = "Cut";
             }
 
             if (toolStripMenuItemArpProtection.Checked)
@@ -307,19 +307,19 @@ namespace dznetcut.GUI
 
             if (_gatewayIpAddress == null || _selectedDevice == null)
             {
-                toolStripStatus.Text = "Select an interface before spoofing.";
+                toolStripStatus.Text = "Select an interface before cutting traffic.";
                 return;
             }
 
             try
             {
-                _arpSpoofer.Start(targets, _gatewayIpAddress, gatewayPhysicalAddress, _selectedDevice);
+                _arpTrafficCutter.Start(targets, _gatewayIpAddress, gatewayPhysicalAddress, _selectedDevice);
             }
             catch (Exception ex)
             {
                 TryDisableArpProtection();
-                _ = MessageBox.Show($"Failed to start spoofing: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                toolStripStatus.Text = "Failed to start spoofing.";
+                _ = MessageBox.Show($"Failed to cut traffic: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                toolStripStatus.Text = "Failed to cut traffic.";
             }
             UpdateUiState();
         }
@@ -327,7 +327,7 @@ namespace dznetcut.GUI
         private void ExitGracefully()
         {
             StopNetworkScan();
-            _arpSpoofer.StopAll();
+            _arpTrafficCutter.StopAll();
             TryDisableArpProtection();
         }
 
@@ -440,11 +440,11 @@ namespace dznetcut.GUI
 
         private void ReconnectClients()
         {
-            _arpSpoofer.StopAll();
+            _arpTrafficCutter.StopAll();
             TryDisableArpProtection();
             foreach (ListViewItem entry in clientListView.Items)
             {
-                entry.SubItems[2].Text = "On";
+                entry.SubItems[2].Text = "Normal";
             }
 
             toolStripStatus.Text = "Stopped";
@@ -530,7 +530,7 @@ namespace dznetcut.GUI
             _selectedDevice = selectedDevice;
             _gatewayIpAddress = gatewayIpAddress;
 
-            _arpSpoofer.StopAll();
+            _arpTrafficCutter.StopAll();
             clientListView.Items.Clear();
             _clientItemsByIp.Clear();
             toolStripStatus.Text = "Ready";
@@ -712,18 +712,18 @@ namespace dznetcut.GUI
         private void UpdateUiState()
         {
             var hasSingleSelection = clientListView.SelectedItems.Count == 1;
-            var hasSpoofing = _arpSpoofer.IsSpoofing;
+            var hasTrafficCut = _arpTrafficCutter.IsTrafficCutActive;
             var hasScan = _networkScanner.IsScanning;
             var hasSpoofableSelection = clientListView.SelectedItems
                 .Cast<ListViewItem>()
                 .Any(selectedItem => !IsProtectedTarget(selectedItem));
 
-            cutoffToolStripMenuItem.Enabled = hasSpoofableSelection && !hasScan && !hasSpoofing;
-            reconnectToolStripMenuItem.Enabled = hasSpoofing;
+            cutoffToolStripMenuItem.Enabled = hasSpoofableSelection && !hasScan && !hasTrafficCut;
+            reconnectToolStripMenuItem.Enabled = hasTrafficCut;
             stopNetworkScanToolStripMenuItem.Enabled = hasScan;
             toolStripMenuItemRefreshClients.Enabled = !hasScan;
-            ClientNametoolStripMenuItem.Enabled = hasSingleSelection && !hasSpoofing;
-            toolStripTextBoxClientName.Enabled = hasSingleSelection && !hasSpoofing;
+            ClientNametoolStripMenuItem.Enabled = hasSingleSelection && !hasTrafficCut;
+            toolStripTextBoxClientName.Enabled = hasSingleSelection && !hasTrafficCut;
 
             if (hasSingleSelection)
             {

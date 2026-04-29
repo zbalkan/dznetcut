@@ -11,28 +11,28 @@ using SharpPcap.LibPcap;
 
 namespace dznetcut.Logic
 {
-    public class Spoofer
+    public class TrafficCutter
     {
         private readonly Action<string> _log;
         private readonly object _sendSync = new object();
         private readonly object _sync = new object();
         private int _activeTargetCount;
-        private CancellationTokenSource? _spoofingCts;
-        private List<Task> _spoofingTasks = new List<Task>();
-        public Spoofer(Action<string>? log = null)
+        private CancellationTokenSource? _trafficCutCts;
+        private List<Task> _trafficCutTasks = new List<Task>();
+        public TrafficCutter(Action<string>? log = null)
         {
             _log = log ?? (msg => Debug.Print(msg));
         }
 
-        public event Action<bool>? SpoofingStateChanged;
+        public event Action<bool>? TrafficCutStateChanged;
 
-        public bool IsSpoofing {
+        public bool IsTrafficCutActive {
             get {
                 lock (_sync)
                 {
-                    return _spoofingCts != null
-                        && !_spoofingCts.IsCancellationRequested
-                        && _spoofingTasks.Exists(task => !task.IsCompleted);
+                    return _trafficCutCts != null
+                        && !_trafficCutCts.IsCancellationRequested
+                        && _trafficCutTasks.Exists(task => !task.IsCompleted);
                 }
             }
         }
@@ -46,19 +46,19 @@ namespace dznetcut.Logic
 
             if (targets == null || targets.Count == 0)
             {
-                _log("Spoofing task skipped because there are no targets.");
+                _log("Traffic-cut task skipped because there are no targets.");
                 return;
             }
 
-            CancellationTokenSource spoofingCts;
+            CancellationTokenSource trafficCutCts;
             lock (_sync)
             {
-                _spoofingCts = new CancellationTokenSource();
+                _trafficCutCts = new CancellationTokenSource();
                 _activeTargetCount = targets.Count;
-                spoofingCts = _spoofingCts;
+                trafficCutCts = _trafficCutCts;
             }
 
-            SpoofingStateChanged?.Invoke(true);
+            TrafficCutStateChanged?.Invoke(true);
 
             if (!networkAdapter.Opened)
             {
@@ -67,31 +67,31 @@ namespace dznetcut.Logic
 
             if (networkAdapter.MacAddress == null)
             {
-                _log("Spoofing task skipped because adapter MAC address is unavailable.");
+                _log("Traffic-cut task skipped because adapter MAC address is unavailable.");
                 lock (_sync)
                 {
-                    _spoofingCts?.Dispose();
-                    _spoofingCts = null;
+                    _trafficCutCts?.Dispose();
+                    _trafficCutCts = null;
                     _activeTargetCount = 0;
                 }
-                SpoofingStateChanged?.Invoke(false);
+                TrafficCutStateChanged?.Invoke(false);
                 return;
             }
 
-            _log($"Spoofing task started for {_activeTargetCount} target(s).");
+            _log($"Traffic-cut task started for {_activeTargetCount} target(s).");
 
             var tasks = new List<Task>();
             foreach (var target in targets)
             {
                 var spoofTask = Task.Run(
-                    () => SendSpoofingPacket(target.Key, target.Value, gatewayIpAddress, gatewayMacAddress, networkAdapter, spoofingCts.Token),
-                    spoofingCts.Token);
+                    () => SendTrafficCutPacket(target.Key, target.Value, gatewayIpAddress, gatewayMacAddress, networkAdapter, trafficCutCts.Token),
+                    trafficCutCts.Token);
                 tasks.Add(spoofTask);
             }
 
             lock (_sync)
             {
-                _spoofingTasks = tasks;
+                _trafficCutTasks = tasks;
             }
         }
 
@@ -101,13 +101,13 @@ namespace dznetcut.Logic
             Task[] tasksToWait;
             lock (_sync)
             {
-                if (_spoofingCts == null || _spoofingCts.IsCancellationRequested)
+                if (_trafficCutCts == null || _trafficCutCts.IsCancellationRequested)
                 {
                     return;
                 }
 
-                ctsToCancel = _spoofingCts;
-                tasksToWait = _spoofingTasks.ToArray();
+                ctsToCancel = _trafficCutCts;
+                tasksToWait = _trafficCutTasks.ToArray();
             }
 
             ctsToCancel.Cancel();
@@ -124,14 +124,14 @@ namespace dznetcut.Logic
 
             lock (_sync)
             {
-                _spoofingTasks = new List<Task>();
-                _spoofingCts?.Dispose();
-                _spoofingCts = null;
+                _trafficCutTasks = new List<Task>();
+                _trafficCutCts?.Dispose();
+                _trafficCutCts = null;
             }
 
-            _log($"Spoofing task stopped for {_activeTargetCount} target(s).");
+            _log($"Traffic-cut task stopped for {_activeTargetCount} target(s).");
             _activeTargetCount = 0;
-            SpoofingStateChanged?.Invoke(false);
+            TrafficCutStateChanged?.Invoke(false);
         }
 
         private static EthernetPacket BuildPoisonReplyPacket(
@@ -152,7 +152,7 @@ namespace dznetcut.Logic
             };
         }
 
-        private async Task SendSpoofingPacket(
+        private async Task SendTrafficCutPacket(
                     IPAddress ipAddress,
             PhysicalAddress physicalAddress,
             IPAddress gatewayIpAddress,
@@ -160,11 +160,11 @@ namespace dznetcut.Logic
             LibPcapLiveDevice captureDevice,
             CancellationToken cancellationToken)
         {
-            _log($"Spoofing target {physicalAddress.ToString("-")} @ {ipAddress}");
+            _log($"Cutting traffic for target {physicalAddress.ToString("-")} @ {ipAddress}");
 
             if (captureDevice.MacAddress == null)
             {
-                _log($"Adapter MAC address unavailable; skipping spoofing thread for {ipAddress}");
+                _log($"Adapter MAC address unavailable; skipping traffic-cut thread for {ipAddress}");
                 return;
             }
 
@@ -196,10 +196,10 @@ namespace dznetcut.Logic
             }
             catch (PcapException ex)
             {
-                _log($"PcapException @ Spoofer.SendSpoofingPacket() [{ex.Message}]");
+                _log($"PcapException @ TrafficCutter.SendTrafficCutPacket() while cutting traffic [{ex.Message}]");
             }
 
-            _log($"Spoofing thread terminating for {physicalAddress.ToString("-")} @ {ipAddress}");
+            _log($"Traffic-cut thread terminating for {physicalAddress.ToString("-")} @ {ipAddress}");
         }
     }
 }

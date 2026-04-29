@@ -166,7 +166,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.toolStripMenuItemArpProtection.Name = "toolStripMenuItemArpProtection";
             this.toolStripMenuItemArpProtection.Size = new System.Drawing.Size(193, 22);
             this.toolStripMenuItemArpProtection.Text = "Enable ARP Protection";
-            this.toolStripMenuItemArpProtection.ToolTipText = "Pin the gateway ARP entry while spoofing is active";
+            this.toolStripMenuItemArpProtection.ToolTipText = "Pin the gateway ARP entry while traffic cut is active";
             this.toolStripMenuItemArpProtection.CheckStateChanged += new System.EventHandler(this.toolStripMenuItemArpProtection_CheckStateChanged);
             // 
             // toolStripMenuItemStealthMode
@@ -209,7 +209,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.cutoffToolStripMenuItem.Name = "cutoffToolStripMenuItem";
             this.cutoffToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.X)));
             this.cutoffToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
-            this.cutoffToolStripMenuItem.Text = "Start Spoofing";
+            this.cutoffToolStripMenuItem.Text = "Cut Traffic";
             this.cutoffToolStripMenuItem.ToolTipText = "Disconnect selected clients";
             this.cutoffToolStripMenuItem.Click += new System.EventHandler(this.cutoffToolStripMenuItem_Click);
             // 
@@ -218,8 +218,8 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.reconnectToolStripMenuItem.Name = "reconnectToolStripMenuItem";
             this.reconnectToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.R)));
             this.reconnectToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
-            this.reconnectToolStripMenuItem.Text = "Stop Spoofing";
-            this.reconnectToolStripMenuItem.ToolTipText = "Stop arp spoofing";
+            this.reconnectToolStripMenuItem.Text = "Restore Traffic";
+            this.reconnectToolStripMenuItem.ToolTipText = "Restore normal ARP traffic";
             this.reconnectToolStripMenuItem.Click += new System.EventHandler(this.reconnectToolStripMenuItem_Click);
             // 
             // toolStripSeparator2
@@ -368,7 +368,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // 
             // columnHeaderCutoffStatus
             // 
-            this.columnHeaderCutoffStatus.Text = "Status";
+            this.columnHeaderCutoffStatus.Text = "Traffic";
             this.columnHeaderCutoffStatus.Width = 55;
             // 
             // columnHeaderClientname

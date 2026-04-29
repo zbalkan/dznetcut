@@ -26,7 +26,7 @@ namespace dznetcut.Logic
 
         public static void Cut(LibPcapLiveDevice adapter, IPAddress gatewayIp, PhysicalAddress gatewayMac, IReadOnlyDictionary<IPAddress, PhysicalAddress> targets, int durationSeconds, bool arpProtectionEnabled, Action<string> writeLine)
         {
-            var spoofer = new Spoofer(writeLine);
+            var trafficCutter = new TrafficCutter(writeLine);
             var optionsByDeviceId = BuildCatalog(new[] { adapter }, includeVirtualAdapters: true).OptionsByDeviceId;
             _ = optionsByDeviceId.TryGetValue(adapter.Name, out var selectedOption);
 
@@ -42,12 +42,12 @@ namespace dznetcut.Logic
                     ArpProtectionService.Enable(selectedOption.InterfaceId, gatewayIp, gatewayMac);
                 }
 
-                spoofer.Start(targets, gatewayIp, gatewayMac, adapter);
+                trafficCutter.Start(targets, gatewayIp, gatewayMac, adapter);
                 Thread.Sleep(TimeSpan.FromSeconds(durationSeconds));
             }
             finally
             {
-                spoofer.StopAll();
+                trafficCutter.StopAll();
                 if (arpProtectionEnabled && selectedOption?.InterfaceId != null)
                 {
                     try { ArpProtectionService.Disable(selectedOption.InterfaceId, gatewayIp, gatewayMac); }
