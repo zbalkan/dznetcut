@@ -44,8 +44,6 @@ namespace dznetcut
             _networkScanner.ScanStateChanged += _ => SafeUpdateUiState();
         }
 
-        private static IReadOnlyList<AdapterSelectionOptionModel> BuildAdapterOptions(IReadOnlyList<LibPcapLiveDevice> devices) => AdapterInventoryService.BuildAdapterOptions(devices);
-
         private static bool TryReadClientIdentity(ListViewItem? item, out IPAddress ipAddress, out PhysicalAddress macAddress)
         {
             ipAddress = IPAddress.None;
@@ -56,12 +54,12 @@ namespace dznetcut
                 return false;
             }
 
-            if (item?.SubItems.Count < 2)
+            if (item.SubItems.Count < 2)
             {
                 return false;
             }
 
-            if (!IPAddress.TryParse(item!.SubItems[0].Text, out var parsedIpAddress))
+            if (!IPAddress.TryParse(item.SubItems[0].Text, out var parsedIpAddress))
             {
                 return false;
             }
@@ -262,19 +260,12 @@ namespace dznetcut
                 return;
             }
 
-            PhysicalAddress? gatewayPhysicalAddress = null;
-            foreach (ListViewItem item in clientListView.Items)
+            PhysicalAddress gatewayPhysicalAddress;
+            try
             {
-                if (item.SubItems[0].Text != _gatewayIpAddress?.ToString())
-                {
-                    continue;
-                }
-
-                gatewayPhysicalAddress = item.SubItems[1].Text.Parse();
-                break;
+                gatewayPhysicalAddress = ResolveGatewayMacFromList();
             }
-
-            if (gatewayPhysicalAddress == null)
+            catch (InvalidOperationException)
             {
                 _ = MessageBox.Show("Gateway Physical Address still undiscovered. Please wait and try again.", "Warning", MessageBoxButtons.OK);
                 return;
@@ -403,7 +394,7 @@ namespace dznetcut
                 Log(captureError!);
             }
 
-            var options = BuildAdapterOptions(winPcapDevices);
+            var options = AdapterInventoryService.BuildAdapterOptions(winPcapDevices);
             var includeVirtualAdapters = toolStripMenuItemSelectAllAdapters.Checked;
             var visibleOptions = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters);
 

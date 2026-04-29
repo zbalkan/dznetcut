@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Text.Json;
 using System.Threading;
 using dznetcut.Logic;
 using SharpPcap.LibPcap;
@@ -193,20 +194,21 @@ namespace dznetcut.CLI
                 return 3;
             }
 
-            var options = AdapterInventoryService.BuildAdapterOptions(devices.ToArray());
-            var rows = new List<string>();
-            foreach (var device in devices)
-            {
-                var option = options.FirstOrDefault(o => string.Equals(o.DeviceId, device.Name, StringComparison.Ordinal));
-                var label = option?.DisplayText ?? (device.Interface?.FriendlyName ?? device.Name);
-                var gateway = option?.GatewayIpAddress?.ToString() ?? "n/a";
-                rows.Add($"{label} | id={device.Name} | gateway={gateway} | physical={option?.IsPhysical}");
-            }
+            var optionsByDeviceId = AdapterInventoryService.BuildAdapterOptions(devices.ToArray())
+                .ToDictionary(option => option.DeviceId, StringComparer.Ordinal);
+            var rows = devices
+                .Select(device =>
+                {
+                    _ = optionsByDeviceId.TryGetValue(device.Name, out var option);
+                    var label = option?.DisplayText ?? (device.Interface?.FriendlyName ?? device.Name);
+                    var gateway = option?.GatewayIpAddress?.ToString() ?? "n/a";
+                    return $"{label} | id={device.Name} | gateway={gateway} | physical={option?.IsPhysical}";
+                })
+                .ToList();
 
             if (arguments.Options.ContainsKey("json"))
             {
-                var jsonRows = string.Join(",", rows.Select(item => $"\"{item.Replace("\\", "\\\\").Replace("\"", "\\\"")}\""));
-                _writeLine($"{{\"adapters\":[{jsonRows}]}}");
+                _writeLine(JsonSerializer.Serialize(new { adapters = rows }));
                 return 0;
             }
 
