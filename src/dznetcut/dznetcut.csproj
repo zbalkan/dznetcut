@@ -22,7 +22,7 @@
     <Guid>8fb487c8-306d-4476-8c6b-4d3ddf1853a4</Guid>
 
     <StartupObject>dznetcut.Program</StartupObject>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
@@ -40,7 +40,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="icon.ico" />
+    <Content Include="app.ico" />
   </ItemGroup>
 
   <ItemGroup>
