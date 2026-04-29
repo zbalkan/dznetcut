@@ -16,12 +16,9 @@ namespace dznetcut.Logic
             return CreateIpNetEntry(ref row);
         }
 
-        public static bool EntryExists(GatewayBinding binding)
-        {
-            return GetTable().Any(row =>
-                row.dwIndex == binding.InterfaceIndex &&
-                row.dwAddr == IpToUInt32(binding.Ip));
-        }
+        public static bool EntryExists(GatewayBinding binding) => GetTable().Any(row =>
+                                                                               row.dwIndex == binding.InterfaceIndex &&
+                                                                               row.dwAddr == IpToUInt32(binding.Ip));
 
         public static uint Remove(GatewayBinding binding)
         {

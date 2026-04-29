@@ -13,6 +13,7 @@ namespace dznetcut.Utilities
         private const char MinorDelimiter = '$';
         private const string SettingsFileName = "dznetcut.config";
         private const string ShowLogPrefix = "show_log=";
+
         private static readonly string SettingsFilePath = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory,
             SettingsFileName);

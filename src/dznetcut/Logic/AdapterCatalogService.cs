@@ -194,8 +194,7 @@ namespace dznetcut.Logic
         }
 
         private static IComparer<IPAddress> CreateIpAddressComparer()
-            => Comparer<IPAddress>.Create((x, y) =>
-            {
+            => Comparer<IPAddress>.Create((x, y) => {
                 if (ReferenceEquals(x, y))
                 {
                     return 0;
@@ -232,7 +231,6 @@ namespace dznetcut.Logic
         private static AdapterSelectionOptionModel? FindOption(AdapterCatalogModel catalog, string adapterValue)
             => catalog.OptionsByDeviceId.Values.FirstOrDefault(o => string.Equals(o.DeviceId, adapterValue, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(o.DisplayText, adapterValue, StringComparison.OrdinalIgnoreCase));
-
     }
 
     internal sealed class AdapterCatalogModel

@@ -9,6 +9,7 @@ namespace dznetcut.Logic
     {
         private readonly uint _broadcastAddress;
         private readonly uint _networkAddress;
+
         public IPV4Subnet(IPAddress currentAddress, IPAddress subnetMask)
         {
             if (currentAddress == null)

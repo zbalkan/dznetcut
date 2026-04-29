@@ -1,6 +1,6 @@
 using System;
-using System.ComponentModel;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -9,9 +9,9 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Windows.Forms;
 using dznetcut.Logic;
+using dznetcut.Utilities;
 using SharpPcap;
 using SharpPcap.LibPcap;
-using dznetcut.Utilities;
 
 namespace dznetcut.GUI
 {
@@ -167,7 +167,6 @@ namespace dznetcut.GUI
             clientListView.Height = showLog ? Height - 184 : Height - 93;
             AdjustClientListViewLayout();
         }
-
 
         private string GetSelectedInterfaceId()
         {
@@ -695,7 +694,6 @@ namespace dznetcut.GUI
         }
 
         private void toolStripMenuItemSelectAllAdapters_CheckStateChanged(object sender, EventArgs e) => PopulateAdapterDropDown(toolStripComboBoxDevicelist.Text);
-
 
         private void TryDisableArpProtection()
         {

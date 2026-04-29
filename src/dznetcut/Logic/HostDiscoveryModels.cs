@@ -127,6 +127,7 @@ namespace dznetcut.Logic
         public DateTime LastSeenUtc { get; set; }
         public PhysicalAddress? MacAddress { get; set; }
         public HashSet<int> OpenPortsHints { get; }
+
         public string? PreferredHostname => HostnameCandidates
             .OrderByDescending(c => c.TimestampUtc)
             .Select(c => c.Name)

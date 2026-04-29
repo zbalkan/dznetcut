@@ -107,8 +107,6 @@ namespace dznetcut.Logic
             return BuildOptions(deviceSnapshots, compatibleInterfaces);
         }
 
-
-
         // Derived from DZMAC adapter collection approach: one adapter row per resolved interface.
         private static IReadOnlyList<AdapterDeviceSnapshot> BuildDeviceSnapshotsDzmacStyle(
             IReadOnlyList<LibPcapLiveDevice> devices,
@@ -189,6 +187,7 @@ namespace dznetcut.Logic
             try { return device.ReadCurrentIpV4Address(); }
             catch (InvalidOperationException) { return null; }
         }
+
         internal static IReadOnlyList<AdapterSelectionOptionModel> FilterAdapterOptions(IReadOnlyCollection<AdapterSelectionOptionModel> options, bool includeVirtualAdapters) => (includeVirtualAdapters ? options : options.Where(option => option.IsPhysical))
                 .OrderByDescending(option => option.IsPhysical)
                 .ThenBy(option => option.DisplayText, StringComparer.OrdinalIgnoreCase)
@@ -257,6 +256,5 @@ namespace dznetcut.Logic
             var macAddress = macAddressValue?.GetAddressBytes() ?? Array.Empty<byte>();
             return macAddress.Length == 6 && macAddress.Any(octet => octet != 0);
         }
-
     }
 }

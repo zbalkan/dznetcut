@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
@@ -11,6 +10,7 @@ namespace dznetcut.CLI
     internal sealed class CliCommandRouter
     {
         private readonly Action<string> _writeLine;
+
         public CliCommandRouter(Action<string> writeLine)
         {
             _writeLine = writeLine;
@@ -41,13 +41,17 @@ namespace dznetcut.CLI
                 {
                     case "list-adapters":
                         return ListAdapters(arguments);
+
                     case "scan":
                         return Scan(arguments);
+
                     case "cut":
                         return Cut(arguments);
+
                     case "stop":
                         _writeLine("stop command is only supported for future background sessions.");
                         return 0;
+
                     default:
                         _writeLine($"Unknown command: {arguments.Command}");
                         _writeLine(CliHelpText.Build());
@@ -167,7 +171,6 @@ namespace dznetcut.CLI
 
         private bool TryResolveAdapter(CliArguments arguments, out LibPcapLiveDevice? adapter)
         {
-            adapter = null;
             arguments.TryGetOption("adapter", out var adapterValue);
             if (AdapterCatalogService.TryResolveAdapter(adapterValue, out adapter, out var error))
             {
@@ -189,6 +192,5 @@ namespace dznetcut.CLI
 
             return true;
         }
-
     }
 }

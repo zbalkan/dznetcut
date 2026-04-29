@@ -1,8 +1,8 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
-using System.Linq;
 
 namespace dznetcut.Logic
 {
@@ -24,7 +24,10 @@ namespace dznetcut.Logic
     {
         private readonly GatewayBinding _binding;
 
-        public ArpProtectionService(GatewayBinding binding) => _binding = binding;
+        public ArpProtectionService(GatewayBinding binding)
+        {
+            _binding = binding;
+        }
 
         public static ArpProtectionService Create(string interfaceId, IPAddress gatewayIp, PhysicalAddress gatewayMac)
         {
@@ -47,11 +50,9 @@ namespace dznetcut.Logic
         public static void Disable(string interfaceId, IPAddress gatewayIp, PhysicalAddress gatewayMac)
             => Create(interfaceId, gatewayIp, gatewayMac).Enabled = false;
 
-        public bool Enabled
-        {
+        public bool Enabled {
             get => NativeArp.EntryExists(_binding);
-            set
-            {
+            set {
                 if (value == Enabled)
                 {
                     return;

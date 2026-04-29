@@ -7,9 +7,11 @@ namespace dznetcut.Tests
     public class CliArgumentsTests
     {
         [TestMethod]
-        public void Parse_GuiFlag_LaunchesGui()
+        [DataRow("--gui")]
+        [DataRow("--GUI")]
+        public void Parse_GuiFlag_LaunchesGui(string flag)
         {
-            var args = CliArguments.Parse(new[] { "--gui" });
+            var args = CliArguments.Parse(new[] { flag });
 
             Assert.IsTrue(args.LaunchGui);
             Assert.IsFalse(args.ShowHelp);
@@ -17,15 +19,14 @@ namespace dznetcut.Tests
         }
 
         [TestMethod]
-        public void Parse_HelpFlags_ShowHelp()
+        [DataRow("--help")]
+        [DataRow("-h")]
+        public void Parse_HelpFlags_ShowHelp(string flag)
         {
-            var longForm = CliArguments.Parse(new[] { "--help" });
-            var shortForm = CliArguments.Parse(new[] { "-h" });
+            var args = CliArguments.Parse(new[] { flag });
 
-            Assert.IsTrue(longForm.ShowHelp);
-            Assert.IsTrue(shortForm.ShowHelp);
-            Assert.IsFalse(longForm.LaunchGui);
-            Assert.IsFalse(shortForm.LaunchGui);
+            Assert.IsTrue(args.ShowHelp);
+            Assert.IsFalse(args.LaunchGui);
         }
 
         [TestMethod]
@@ -39,13 +40,13 @@ namespace dznetcut.Tests
         }
 
         [TestMethod]
-        public void Parse_NoArpProtectionFlags_AreRecognized()
+        [DataRow("--no-arp-protection")]
+        [DataRow("-nap")]
+        public void Parse_NoArpProtectionFlags_AreRecognized(string flag)
         {
-            var longForm = CliArguments.Parse(new[] { "cut", "--no-arp-protection" });
-            var shortForm = CliArguments.Parse(new[] { "cut", "-nap" });
+            var args = CliArguments.Parse(new[] { "cut", flag });
 
-            Assert.IsTrue(longForm.Options.ContainsKey("no-arp-protection"));
-            Assert.IsTrue(shortForm.Options.ContainsKey("no-arp-protection"));
+            Assert.IsTrue(args.Options.ContainsKey("no-arp-protection"));
         }
 
         [TestMethod]
@@ -84,13 +85,24 @@ namespace dznetcut.Tests
         }
 
         [TestMethod]
-        public void Parse_VerboseFlags_AreRecognized()
+        [DataRow("--verbose")]
+        [DataRow("-v")]
+        public void Parse_VerboseFlags_AreRecognized(string flag)
         {
-            var longForm = CliArguments.Parse(new[] { "scan", "--verbose" });
-            var shortForm = CliArguments.Parse(new[] { "scan", "-v" });
+            var args = CliArguments.Parse(new[] { "scan", flag });
 
-            Assert.IsTrue(longForm.Options.ContainsKey("verbose"));
-            Assert.IsTrue(shortForm.Options.ContainsKey("verbose"));
+            Assert.IsTrue(args.Options.ContainsKey("verbose"));
+        }
+
+        [TestMethod]
+        public void Parse_OptionsWithoutCommand_DefaultsToHelp()
+        {
+            var args = CliArguments.Parse(new[] { "--verbose" });
+
+            Assert.IsTrue(args.ShowHelp);
+            Assert.IsFalse(args.LaunchGui);
+            Assert.IsNull(args.Command);
+            Assert.IsTrue(args.Options.ContainsKey("verbose"));
         }
     }
 }

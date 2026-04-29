@@ -37,7 +37,6 @@ namespace dznetcut.Tests
             Assert.IsTrue(options[0].IsPhysical);
         }
 
-
         [TestMethod]
         public void BuildOptions_PrefersExplicitInterfaceIdMapping()
         {
@@ -60,8 +59,6 @@ namespace dznetcut.Tests
             Assert.IsFalse(options[0].IsPhysical);
             Assert.AreEqual(IPAddress.Parse("10.0.0.1"), options[0].GatewayIpAddress);
         }
-
-
 
         [TestMethod]
         public void BuildOptions_FallsBackToMacIpMatch_WhenPreferredInterfaceIdMissing()
@@ -123,7 +120,9 @@ namespace dznetcut.Tests
         }
 
         [TestMethod]
-        public void FilterOptions_DefaultsToPhysicalOnly()
+        [DataRow(false, 1)]
+        [DataRow(true, 2)]
+        public void FilterOptions_PhysicalAndVirtualAdapters_RespectsIncludeVirtualFlag(bool includeVirtualAdapters, int expectedCount)
         {
             var options = new[]
             {
@@ -131,19 +130,22 @@ namespace dznetcut.Tests
                 new AdapterSelectionOptionModel("virt", "Hyper-V [10.0.0.4]", "if-2", IPAddress.Parse("10.0.0.1"), false)
             };
 
-            var filtered = AdapterInventoryService.FilterAdapterOptions(options, includeVirtualAdapters: false);
+            var filtered = AdapterInventoryService.FilterAdapterOptions(options, includeVirtualAdapters);
 
-            Assert.HasCount(1, filtered);
-            Assert.AreEqual("phy", filtered[0].DeviceId);
+            Assert.HasCount(expectedCount, filtered);
+            if (!includeVirtualAdapters)
+            {
+                Assert.AreEqual("phy", filtered[0].DeviceId);
+            }
         }
 
         [TestMethod]
-        public void FilterOptions_SelectAllAdaptersIncludesVirtual()
+        public void FilterOptions_WithoutPhysicalAdapters_ReturnsAllWhenVirtualAdaptersIncluded()
         {
             var options = new[]
             {
-                new AdapterSelectionOptionModel("phy", "Ethernet [192.168.1.20]", "if-1", IPAddress.Parse("192.168.1.1"), true),
-                new AdapterSelectionOptionModel("virt", "Hyper-V [10.0.0.4]", "if-2", IPAddress.Parse("10.0.0.1"), false)
+                new AdapterSelectionOptionModel("virt-a", "Virtual-A [10.0.0.2]", "if-1", IPAddress.Parse("10.0.0.1"), false),
+                new AdapterSelectionOptionModel("virt-b", "Virtual-B [10.0.0.3]", "if-2", IPAddress.Parse("10.0.0.1"), false)
             };
 
             var filtered = AdapterInventoryService.FilterAdapterOptions(options, includeVirtualAdapters: true);

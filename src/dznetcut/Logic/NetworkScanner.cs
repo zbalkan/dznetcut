@@ -240,6 +240,7 @@ namespace dznetcut.Logic
 
             return Math.Max(_policy.TotalTimeoutSeconds, Math.Min(estimatedSeconds, 180));
         }
+
         private void ClearReportedHosts()
         {
             lock (_reportedHostsLock)
@@ -635,6 +636,7 @@ namespace dznetcut.Logic
                 _log($"Exception while starting passive collector [{ex.Message}]");
             }
         }
+
         private bool TryProcessPassivePacket(
             RawCapture rawCapture,
             IPV4Subnet subnet,

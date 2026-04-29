@@ -10,6 +10,7 @@ namespace dznetcut.Logic
         private readonly HashSet<string> _evidenceFingerprints = new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<IPAddress, HostRecord> _hostsByIp = new Dictionary<IPAddress, HostRecord>();
         private readonly object _sync = new object();
+
         public bool AddEvidence(EvidenceRecord evidence, IPAddress gatewayIp)
         {
             if (evidence.SourceIp == null)
@@ -91,6 +92,7 @@ namespace dznetcut.Logic
                     .ToArray();
             }
         }
+
         private static string BuildFingerprint(EvidenceRecord evidence)
             => string.Join("|",
                 evidence.SourceMethod,

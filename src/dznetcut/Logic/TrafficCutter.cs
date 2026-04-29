@@ -19,6 +19,7 @@ namespace dznetcut.Logic
         private int _activeTargetCount;
         private CancellationTokenSource? _trafficCutCts;
         private List<Task> _trafficCutTasks = new List<Task>();
+
         public TrafficCutter(Action<string>? log = null)
         {
             _log = log ?? (msg => Debug.Print(msg));
@@ -36,6 +37,7 @@ namespace dznetcut.Logic
                 }
             }
         }
+
         public void Start(
             IReadOnlyDictionary<IPAddress, PhysicalAddress> targets,
             IPAddress gatewayIpAddress,
