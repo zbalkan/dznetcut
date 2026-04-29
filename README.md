@@ -65,10 +65,17 @@ Host discovery is evidence-driven: ARP, ICMP, passive traffic hints, and local n
     --target 192.168.1.42@11-22-33-44-55-66 \
     --duration 30
   ```
-- Stop:
+- Stop *(reserved for future background sessions; currently prints an informational message)*:
   ```bash
   dznetcut stop
   ```
+
+### Global options
+
+- `--help`, `-h`: Show help text.
+- `--gui`: Force GUI mode.
+- `--verbose`, `-v`: Enable verbose logging output.
+- `--json`: Return JSON output where supported (currently `list-adapters`).
 
 ### ARP protection flag
 
@@ -79,7 +86,7 @@ Disable only when intentionally required:
 
 ### GUI help parity
 
-The GUI includes **Help → Command line parameters**, which shows the same CLI command surface inline.
+The GUI includes **Help → Command line parameters**, which shows the same CLI command surface inline, including the `--verbose`, `--json`, and ARP protection flags.
 
 ## How ARP cutoff works
 
