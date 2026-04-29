@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using System.Windows.Forms;
 
-namespace dznetcut.Logic.Utilities
+namespace dznetcut.Utilities
 {
     public static class ApplicationSettings
     {

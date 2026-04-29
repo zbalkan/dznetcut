@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 
-namespace dznetcut
+namespace dznetcut.GUI
 {
     partial class ScannerForm
     {

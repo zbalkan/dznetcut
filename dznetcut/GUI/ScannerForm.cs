@@ -10,11 +10,11 @@ using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
 using dznetcut.Logic;
-using dznetcut.Logic.Utilities;
 using SharpPcap;
 using SharpPcap.LibPcap;
+using dznetcut.Utilities;
 
-namespace dznetcut
+namespace dznetcut.GUI
 {
     public partial class ScannerForm : Form
     {

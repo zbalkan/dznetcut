@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 using dznetcut.CLI;
+using dznetcut.GUI;
 
 namespace dznetcut
 {
