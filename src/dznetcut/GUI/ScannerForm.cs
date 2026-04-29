@@ -87,7 +87,7 @@ namespace dznetcut.GUI
                 "Licensed under GNU GPL v3.0\n" +
                 "Copyright (c) 2024-2026 Zafer Balkan\n\n" +
                 "Includes components from dzmac (GPLv3).\n" +
-                "Derived from dznetcut-netcut (MIT License).\n\n" +
+                "Derived from csarp-netcut (MIT License).\n\n" +
                 "Upstream Hash: 6952d98\n" +
                 "DeltaZulu Hash: cbaba0b\n\n" +
                 "Source: github.com/DeltaZulu-OU/dznetcut";
