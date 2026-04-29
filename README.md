@@ -4,6 +4,9 @@
 
 > ⚠️ **Authorized use only:** ARP spoofing can interrupt network connectivity. Use this tool only on systems and networks you own or are explicitly authorized to test.
 
+![Main window](assets/main.png)
+
+
 ## What’s in this version
 
 This codebase now ships as a complete, usable application with:
