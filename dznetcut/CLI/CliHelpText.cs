@@ -22,7 +22,9 @@ Global options:
   --verbose, -v     Verbose logging
 
 cut option:
-  --no-arp-protection, -nap   Disable ARP protection (enabled by default)";
+  --no-arp-protection, -nap   Disable ARP protection (enabled by default)
+
+Open this help from GUI: Help > Command line parameters";
 
 // Command examples:
 //   dznetcut scan --adapter "Ethernet" --gateway-ip 192.168.1.1 --duration 25

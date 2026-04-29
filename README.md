@@ -39,6 +39,8 @@ The scanner correlates evidence from multiple protocols (ARP, ICMP, passive traf
 
 CLI command surface includes `scan`, `cut`, and `stop`.
 
+GUI includes **Help → Command line parameters** to show the same CLI usage text inline.
+
 ### ARP protection flag
 
 For CLI `cut` mode, ARP protection is enabled by default.

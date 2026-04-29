@@ -169,7 +169,8 @@ namespace dznetcut
             AdjustClientListViewLayout();
         }
 
-        private ArpProtectionService BuildArpProtectionService(IPAddress gatewayIpAddress, PhysicalAddress gatewayPhysicalAddress)
+
+        private string GetSelectedInterfaceId()
         {
             if (string.IsNullOrWhiteSpace(_selectedInterfaceFriendlyName)
                 || !_adapterOptionsByDisplayText.TryGetValue(_selectedInterfaceFriendlyName!, out var selectedOption)
@@ -178,12 +179,11 @@ namespace dznetcut
                 throw new InvalidOperationException("Cannot map selected interface to a Windows network adapter.");
             }
 
-            var networkInterface = NetworkInterface.GetAllNetworkInterfaces()
-                .FirstOrDefault(nic => string.Equals(nic.Id, selectedOption.InterfaceId, StringComparison.Ordinal));
-            var ipv4Properties = (networkInterface?.GetIPProperties().GetIPv4Properties()) ?? throw new InvalidOperationException("Cannot resolve selected interface index.");
-            var binding = new GatewayBinding(gatewayIpAddress, gatewayPhysicalAddress, ipv4Properties.Index);
-            return new ArpProtectionService(binding);
+            return selectedOption.InterfaceId!;
         }
+
+        private void commandLineParametersToolStripMenuItem_Click(object sender, EventArgs e)
+            => _ = MessageBox.Show(CLI.CliHelpText.Build(), "Command line parameters", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         private string BuildUniqueDisplayText(AdapterSelectionOptionModel option)
         {
@@ -628,8 +628,7 @@ namespace dznetcut
 
             try
             {
-                var service = BuildArpProtectionService(_gatewayIpAddress, ResolveGatewayMacFromList());
-                service.Enabled = false;
+                ArpProtectionService.Disable(GetSelectedInterfaceId(), _gatewayIpAddress, ResolveGatewayMacFromList());
                 _isArpProtectionApplied = false;
                 Log("ARP protection disabled.");
             }
@@ -648,8 +647,7 @@ namespace dznetcut
 
             try
             {
-                var service = BuildArpProtectionService(_gatewayIpAddress, gatewayPhysicalAddress);
-                service.Enabled = true;
+                ArpProtectionService.Enable(GetSelectedInterfaceId(), _gatewayIpAddress, gatewayPhysicalAddress);
                 _isArpProtectionApplied = true;
                 Log("ARP protection enabled.");
             }

@@ -130,10 +130,40 @@ namespace dznetcut.CLI
             var targets = ParseTargets(targetText!);
 
             var spoofer = new Spoofer(_writeLine);
-            spoofer.Start(targets, gatewayIp, gatewayMac, adapter);
-            Thread.Sleep(TimeSpan.FromSeconds(durationSeconds));
-            spoofer.StopAll();
-            return 0;
+            var selectedOption = AdapterInventoryService.BuildAdapterOptions(new[] { adapter })
+                .FirstOrDefault(option => string.Equals(option.DeviceId, adapter.Name, StringComparison.Ordinal));
+
+            try
+            {
+                if (arpProtectionEnabled)
+                {
+                    if (selectedOption?.InterfaceId == null)
+                    {
+                        throw new InvalidOperationException("Cannot map selected adapter to a Windows interface for ARP protection.");
+                    }
+
+                    ArpProtectionService.Enable(selectedOption.InterfaceId, gatewayIp, gatewayMac);
+                }
+
+                spoofer.Start(targets, gatewayIp, gatewayMac, adapter);
+                Thread.Sleep(TimeSpan.FromSeconds(durationSeconds));
+                return 0;
+            }
+            finally
+            {
+                spoofer.StopAll();
+                if (arpProtectionEnabled && selectedOption?.InterfaceId != null)
+                {
+                    try
+                    {
+                        ArpProtectionService.Disable(selectedOption.InterfaceId, gatewayIp, gatewayMac);
+                    }
+                    catch (Exception ex)
+                    {
+                        _writeLine($"Unable to disable ARP protection: {ex.Message}");
+                    }
+                }
+            }
         }
 
         private static IReadOnlyDictionary<IPAddress, PhysicalAddress> ParseTargets(string input)
