@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -26,6 +27,7 @@ namespace dznetcut
         private readonly SynchronizationContext? _uiContext;
 
         private IPAddress? _gatewayIpAddress;
+        private bool _isArpProtectionApplied;
         private string? _nameEditorSelectionKey;
         private LibPcapLiveDevice? _selectedDevice;
         private string? _selectedInterfaceFriendlyName;
@@ -85,10 +87,12 @@ namespace dznetcut
                 return false;
             }
 
-            if (!IPAddress.TryParse(item!.SubItems[0]!.Text, out ipAddress!))
+            if (!IPAddress.TryParse(item.SubItems[0].Text, out var parsedIpAddress))
             {
                 return false;
             }
+
+            ipAddress = parsedIpAddress;
 
             try
             {
@@ -330,7 +334,27 @@ namespace dznetcut
                 item.SubItems[2].Text = "Off";
             }
 
-            _arpSpoofer.Start(targets, _gatewayIpAddress!, gatewayPhysicalAddress, _selectedDevice!);
+            if (toolStripMenuItemArpProtection.Checked)
+            {
+                TryEnableArpProtection(gatewayPhysicalAddress);
+            }
+
+            if (_gatewayIpAddress == null || _selectedDevice == null)
+            {
+                toolStripStatus.Text = "Select an interface before spoofing.";
+                return;
+            }
+
+            try
+            {
+                _arpSpoofer.Start(targets, _gatewayIpAddress, gatewayPhysicalAddress, _selectedDevice);
+            }
+            catch (Exception ex)
+            {
+                TryDisableArpProtection();
+                _ = MessageBox.Show($"Failed to start spoofing: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                toolStripStatus.Text = "Failed to start spoofing.";
+            }
             UpdateUiState();
         }
 
@@ -338,6 +362,7 @@ namespace dznetcut
         {
             StopNetworkScan();
             _arpSpoofer.StopAll();
+            TryDisableArpProtection();
         }
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e) => Close();
@@ -392,12 +417,12 @@ namespace dznetcut
         {
             var currentSelection = string.IsNullOrWhiteSpace(preferredSelection)
                 ? toolStripComboBoxDevicelist.Text
-                : preferredSelection!;
+                : preferredSelection;
 
             var captureReady = LibPcapDeviceExtensions.TryGetWinPcapDevices(out var winPcapDevices, out var captureError);
             if (!captureReady && !string.IsNullOrWhiteSpace(captureError))
             {
-                Log(captureError!);
+                Log(captureError);
             }
 
             var options = BuildAdapterOptions(winPcapDevices);
@@ -451,6 +476,7 @@ namespace dznetcut
         private void ReconnectClients()
         {
             _arpSpoofer.StopAll();
+            TryDisableArpProtection();
             foreach (ListViewItem entry in clientListView.Items)
             {
                 entry.SubItems[2].Text = "On";
@@ -516,6 +542,88 @@ namespace dznetcut
             {
                 _ = MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void toolStripMenuItemArpProtection_CheckStateChanged(object sender, EventArgs e)
+        {
+            if (!toolStripMenuItemArpProtection.Checked)
+            {
+                TryDisableArpProtection();
+            }
+        }
+
+        private void TryDisableArpProtection()
+        {
+            if (!_isArpProtectionApplied || _gatewayIpAddress == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var service = BuildArpProtectionService(_gatewayIpAddress, ResolveGatewayMacFromList());
+                service.Enabled = false;
+                _isArpProtectionApplied = false;
+                Log("ARP protection disabled.");
+            }
+            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException)
+            {
+                Log($"Unable to disable ARP protection: {ex.Message}");
+            }
+        }
+
+        private void TryEnableArpProtection(PhysicalAddress gatewayPhysicalAddress)
+        {
+            if (_gatewayIpAddress == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var service = BuildArpProtectionService(_gatewayIpAddress, gatewayPhysicalAddress);
+                service.Enabled = true;
+                _isArpProtectionApplied = true;
+                Log("ARP protection enabled.");
+            }
+            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException)
+            {
+                Log($"Unable to enable ARP protection: {ex.Message}");
+            }
+        }
+
+        private ArpProtectionService BuildArpProtectionService(IPAddress gatewayIpAddress, PhysicalAddress gatewayPhysicalAddress)
+        {
+            if (string.IsNullOrWhiteSpace(_selectedInterfaceFriendlyName)
+                || !_adapterOptionsByDisplayText.TryGetValue(_selectedInterfaceFriendlyName, out var selectedOption)
+                || string.IsNullOrWhiteSpace(selectedOption.InterfaceId))
+            {
+                throw new InvalidOperationException("Cannot map selected interface to a Windows network adapter.");
+            }
+
+            var networkInterface = NetworkInterface.GetAllNetworkInterfaces()
+                .FirstOrDefault(nic => string.Equals(nic.Id, selectedOption.InterfaceId, StringComparison.Ordinal));
+            var ipv4Properties = networkInterface?.GetIPProperties().GetIPv4Properties();
+            if (ipv4Properties == null)
+            {
+                throw new InvalidOperationException("Cannot resolve selected interface index.");
+            }
+
+            var binding = new GatewayBinding(gatewayIpAddress, gatewayPhysicalAddress, ipv4Properties.Index);
+            return new ArpProtectionService(binding);
+        }
+
+        private PhysicalAddress ResolveGatewayMacFromList()
+        {
+            foreach (ListViewItem item in clientListView.Items)
+            {
+                if (item.SubItems[0].Text == _gatewayIpAddress?.ToString())
+                {
+                    return item.SubItems[1].Text.Parse();
+                }
+            }
+
+            throw new InvalidOperationException("Gateway MAC address is unavailable.");
         }
 
         private void showLogToolStripMenuItem_CheckStateChanged(object sender, EventArgs e) => ApplyLogVisibility(showLogToolStripMenuItem.Checked);
