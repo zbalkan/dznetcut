@@ -1,86 +1,86 @@
 # dznetcut
 
-`dznetcut` is a Windows desktop network tool for **discovering LAN hosts** and **performing targeted ARP interruption** tests from a single interface.
+`dznetcut` is a Windows network operations tool for **LAN host discovery** and **targeted ARP interruption testing** from a single interface.
 
-> ⚠️ **Authorized use only:** ARP spoofing can disrupt connectivity for other devices. Use this project only on networks and systems you own or are explicitly permitted to test.
+> ⚠️ **Authorized use only:** ARP spoofing can disrupt connectivity. Use this project only on infrastructure you own or are explicitly authorized to test.
 
----
+## Table of contents
 
-## What this tool does
+- [Overview](#overview)
+- [Feature summary](#feature-summary)
+- [Command-line usage](#command-line-usage)
+- [How ARP cutoff works](#how-arp-cutoff-works)
+- [Requirements](#requirements)
+- [Build and setup](#build-and-setup)
+- [GUI workflow](#gui-workflow)
+- [Testing](#testing)
+- [Safety, legal use, and ethics](#safety-legal-use-and-ethics)
+- [Licensing and provenance](#licensing-and-provenance)
+- [Maintainer](#maintainer)
 
-`dznetcut` combines two workflows:
+## Overview
 
-1. **Host discovery** on the local IPv4 subnet.
-2. **Targeted ARP poisoning** to interrupt selected hosts' connectivity through the gateway.
+`dznetcut` combines two workflows in one executable:
 
-The scanner correlates evidence from multiple protocols (ARP, ICMP, passive traffic hints, and local-name discovery traffic) and keeps confidence-scored host records before showing candidates in the UI.
+1. **Subnet host discovery** on IPv4 LANs.
+2. **Selective ARP poisoning** against chosen hosts to interrupt routing through the gateway.
 
----
+Host discovery is evidence-driven: ARP, ICMP, passive traffic hints, and local naming traffic are correlated into confidence-scored host entries before operators choose targets.
 
-## Key features
+## Feature summary
 
-- **Windows Forms GUI** for adapter selection, scanning, target selection, and live logging.
-- **Interface-aware adapter selection** that prefers physical adapters with usable IPv4 context.
-- **Multi-signal host discovery** with confidence scoring and host evidence aggregation.
-- **Targeted spoof loop** that sends unicast ARP replies to both target and gateway.
-- **ARP protection safeguards** that block spoofing against protected identities (your source host and the detected gateway).
-- **Saved device labels** so known MAC addresses can be named in the UI.
+- **Windows Forms GUI** for adapter selection, scan control, target selection, and live logs.
+- **Adapter-aware interface selection** that prioritizes usable physical adapters.
+- **Multi-signal host discovery** with confidence scoring and evidence aggregation.
+- **Targeted spoof loop** that sends ARP replies to both gateway and target(s).
+- **ARP protection guards** for protected identities (local host and detected gateway).
+- **Saved device labels** for recognizable MAC-to-name mapping.
+- **Unified entry point**: GUI and CLI are routed through the same executable.
 
-## CLI
+## Command-line usage
 
-`dznetcut` now supports CLI entry routing in the same executable:
+### Entry modes
 
 - Launch GUI (default): `dznetcut`
 - Force GUI: `dznetcut --gui`
-- Show CLI help: `dznetcut --help`
-- List adapters: `dznetcut list-adapters`
-- Scan: `dznetcut scan --adapter "Ethernet" --gateway-ip 192.168.1.1 --duration 25`
-- Cut: `dznetcut cut --adapter "Ethernet" --gateway-ip 192.168.1.1 --gateway-mac AA-BB-CC-DD-EE-FF --target 192.168.1.42@11-22-33-44-55-66 --duration 30`
+- Help: `dznetcut --help`
 
-CLI command surface includes `scan`, `cut`, and `stop`.
+### Commands
 
-GUI includes **Help → Command line parameters** to show the same CLI usage text inline.
+- List adapters:
+  ```bash
+  dznetcut list-adapters
+  ```
+- Scan:
+  ```bash
+  dznetcut scan --adapter "Ethernet" --gateway-ip 192.168.1.1 --duration 25
+  ```
+- Cut:
+  ```bash
+  dznetcut cut \
+    --adapter "Ethernet" \
+    --gateway-ip 192.168.1.1 \
+    --gateway-mac AA-BB-CC-DD-EE-FF \
+    --target 192.168.1.42@11-22-33-44-55-66 \
+    --duration 30
+  ```
+- Stop:
+  ```bash
+  dznetcut stop
+  ```
 
 ### ARP protection flag
 
-For CLI `cut` mode, ARP protection is enabled by default.
-To disable it, use:
+For `cut` mode, ARP protection is enabled by default.
+Disable only when intentionally required:
 
-- `--no-arp-protection` (or `-nap`)
----
+- `--no-arp-protection` (alias: `-nap`)
 
-## Requirements
+### GUI help parity
 
-- **OS:** Windows (GUI app targeting .NET Framework 4.8.1)
-- **Runtime/SDK:** .NET Framework 4.8.1 developer tooling (typically via Visual Studio)
-- **Packet capture driver:** **Npcap** (required by SharpPcap/LibPcap on Windows)
-- **Privileges:** Administrative permissions are typically required for raw capture/transmit operations
+The GUI includes **Help → Command line parameters**, which shows the same CLI command surface inline.
 
----
-
-## Installation and build
-
-### 1) Clone
-
-```bash
-git clone https://github.com/DeltaZulu-OU/dznetcut.git
-cd dznetcut
-```
-
-### 2) Restore/build (Visual Studio)
-
-Open `dznetcut.sln`, restore NuGet packages, and build in `Release` or `Debug`.
-
-### 3) Build from CLI (Developer Command Prompt)
-
-```bash
-dotnet restore dznetcut.sln
-dotnet build dznetcut.sln -c Release
-```
-
----
-
-## How cutoff works (Mermaid)
+## How ARP cutoff works
 
 ```mermaid
 sequenceDiagram
@@ -101,56 +101,75 @@ sequenceDiagram
     Note over T,G: ARP entries eventually age out or refresh
 ```
 
-This ARP-poisoning loop continuously refreshes forged IP→MAC mappings so the target and gateway stop trusting each other's real hardware address during the active cutoff window.
+During an active cutoff window, forged IP→MAC mappings are continuously refreshed so target and gateway stop trusting each other’s real hardware addresses.
 
----
+## Requirements
 
-## Usage guide
+- **Operating system:** Windows
+- **Framework target:** .NET Framework 4.8.1
+- **Build tooling:** Visual Studio with .NET Framework developer tools
+- **Capture/transmit driver:** Npcap (required by SharpPcap/LibPcap on Windows)
+- **Privileges:** Administrator rights are typically required for raw packet capture/transmission
 
-1. Launch `dznetcut` as administrator.
-2. Select the network adapter connected to the target LAN.
-3. Start scanning and wait for host discovery to stabilize.
-4. Review host list and confidence (gateway and local host are protected).
-   - If only protected hosts are selected, cutoff is rejected and no spoofing task starts.
-5. Select one or more target hosts.
-6. Start spoofing to interrupt selected hosts.
+## Build and setup
+
+### 1) Clone
+
+```bash
+git clone https://github.com/DeltaZulu-OU/dznetcut.git
+cd dznetcut
+```
+
+### 2) Build with Visual Studio
+
+Open `dznetcut.sln`, restore NuGet packages, then build (`Debug` or `Release`).
+
+### 3) Build from command line
+
+Use a Developer Command Prompt (or equivalent configured environment):
+
+```bash
+dotnet restore dznetcut.sln
+dotnet build dznetcut.sln -c Release
+```
+
+## GUI workflow
+
+1. Run `dznetcut` as administrator.
+2. Select the adapter connected to the target LAN.
+3. Start scanning and wait for host confidence to stabilize.
+4. Review hosts (local host and gateway are protected identities).
+5. Select one or more non-protected targets.
+6. Start spoofing.
 7. Stop spoofing to terminate active ARP poison tasks.
 
-**Operational note:** Behavior depends on network topology, endpoint ARP behavior, and local network defenses.
-
----
-
-## Safety, legality, and ethics
-
-This repository is intended for:
-
-- lab simulations,
-- defensive validation,
-- red-team exercises with authorization,
-- incident response diagnostics in controlled environments.
-
-Do **not** use it on third-party networks, shared infrastructure, or any environment without explicit written permission.
-
----
+If only protected hosts are selected, cutoff is rejected and no spoofing task starts.
 
 ## Testing
 
-Unit tests are in `dznetcut.Tests`.
+Unit tests live in `dznetcut.Tests`.
 
 ```bash
 dotnet test dznetcut.Tests/dznetcut.Tests.csproj
 ```
 
----
+## Safety, legal use, and ethics
 
-## Licensing & provenance
+This project is intended for:
+
+- lab simulations,
+- defensive validation,
+- authorized red-team exercises,
+- incident-response diagnostics in controlled environments.
+
+Do **not** use this tool on third-party networks or shared infrastructure without explicit written permission.
+
+## Licensing and provenance
 
 - `dznetcut` is a hard fork of [`globalpolicy/csarp-netcut`](https://github.com/globalpolicy/csarp-netcut) (fork point `6952d98`) with components from [`DeltaZulu-OU/dzmac`](https://github.com/DeltaZulu-OU/dzmac).
 - Current project lineage starts from commit `cbaba0b`.
-- License for current codebase: [GPL-3.0-only](LICENSE).
-- Historical upstream notice: [MIT License](LICENSE-MIT).
-
----
+- Current codebase license: [GPL-3.0-only](LICENSE).
+- Historical upstream notice: [MIT License](LICENSE.MIT).
 
 ## Maintainer
 
