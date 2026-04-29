@@ -1,0 +1,88 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v4
+
+      - name: Restore packages
+        run: nuget restore src/dznetcut.sln
+
+      - name: Read version from csproj
+        id: version
+        shell: pwsh
+        run: |
+          $projectPath = 'src/dznetcut/dznetcut.csproj'
+          [xml]$projectXml = Get-Content $projectPath -Raw
+
+          $version = $projectXml.Project.PropertyGroup.Version
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "Unable to read <Version> from $projectPath"
+          }
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Validate release tag is new
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.version.outputs.tag }}'
+          $existingTag = git ls-remote --tags --refs origin "refs/tags/$tag"
+
+          if (-not [string]::IsNullOrWhiteSpace($existingTag)) {
+            throw "Tag '$tag' already exists. Bump <Version> in src/dznetcut/dznetcut.csproj before releasing."
+          }
+
+      - name: Build
+        run: msbuild src/dznetcut.sln /p:Configuration=Release /p:Platform="Any CPU" /m
+
+      - name: Prepare release artifacts
+        id: artifacts
+        shell: pwsh
+        run: |
+          $buildOutputDir = 'src/dznetcut/bin/Release/net481'
+          $expecteddznetcutExe = Join-Path $buildOutputDir 'dznetcut.exe'
+          $dznetcutExe = Join-Path $buildOutputDir 'dznetcut.exe'
+
+          if (Test-Path $expecteddznetcutExe) {
+            $releaseExe = $expecteddznetcutExe
+          }
+          elseif (Test-Path $dznetcutExe) {
+            $releaseExe = $expecteddznetcutExe
+            Copy-Item $dznetcutExe $releaseExe -Force
+          }
+          else {
+            throw 'Neither dznetcut.exe nor dznetcut.exe was found in release output.'
+          }
+
+          $sha256 = (Get-FileHash -Path $releaseExe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $shaPath = "$releaseExe.sha256"
+          "${sha256} *dznetcut.exe" | Set-Content -Path $shaPath -NoNewline
+
+          "exe_path=$releaseExe" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "sha_path=$shaPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: dznetcut v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.artifacts.outputs.exe_path }}
+            ${{ steps.artifacts.outputs.sha_path }}
