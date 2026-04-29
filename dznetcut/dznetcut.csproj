@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <RootNamespace>DeltaZulu.dznetcut</RootNamespace>
+    <RootNamespace>dznetcut</RootNamespace>
     <AssemblyName>dznetcut</AssemblyName>
 
     <Title>dznetcut</Title>
@@ -37,6 +37,10 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>dznetcut.Tests</_Parameter1>
     </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="icon.ico" />
   </ItemGroup>
 
   <ItemGroup>
