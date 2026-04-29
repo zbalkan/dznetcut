@@ -5,16 +5,19 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Threading;
+using SharpPcap;
 using SharpPcap.LibPcap;
 
 namespace dznetcut.Logic
 {
     internal static class AdapterCatalogService
     {
+        private static readonly IComparer<IPAddress> IpAddressComparer = CreateIpAddressComparer();
+
         public static AdapterCatalogModel BuildCatalog(IReadOnlyList<LibPcapLiveDevice> devices, bool includeVirtualAdapters)
         {
             var options = AdapterInventoryService.BuildAdapterOptions(devices);
-            var visibleOptions = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters);
+            var visibleOptions = AdapterInventoryService.FilterAdapterOptions(options, includeVirtualAdapters);
             var devicesById = devices.ToDictionary(device => device.Name, StringComparer.Ordinal);
             var optionsByDeviceId = options.ToDictionary(option => option.DeviceId, StringComparer.Ordinal);
 
@@ -56,7 +59,7 @@ namespace dznetcut.Logic
         public static IReadOnlyDictionary<IPAddress, PhysicalAddress> ParseTargets(string input)
         {
             var map = new Dictionary<IPAddress, PhysicalAddress>();
-            foreach (var entry in input.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (var entry in input.Split([','], StringSplitOptions.RemoveEmptyEntries))
             {
                 var parts = entry.Split('@');
                 if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var ip))
@@ -73,10 +76,10 @@ namespace dznetcut.Logic
         public static IReadOnlyList<ClientDiscoveredEventArgs> Scan(LibPcapLiveDevice adapter, IPAddress gatewayIp, int durationSeconds)
         {
             var scanner = new NetworkScanner(_ => { });
-            var hosts = new ConcurrentDictionary<string, ClientDiscoveredEventArgs>(StringComparer.Ordinal);
+            var hostsByIp = new ConcurrentDictionary<IPAddress, ClientDiscoveredEventArgs>();
 
             scanner.StartScan(adapter, gatewayIp,
-                new Progress<ClientDiscoveredEventArgs>(host => hosts[host.IpAddress.ToString()] = host),
+                new Progress<ClientDiscoveredEventArgs>(host => hostsByIp[host.IpAddress] = host),
                 new Progress<string>(_ => { }),
                 new Progress<int>(_ => { }));
 
@@ -85,14 +88,16 @@ namespace dznetcut.Logic
                 scanner.StopScan();
             }
 
-            return hosts.Values.OrderBy(h => h.IpAddress.ToString(), StringComparer.Ordinal).ToList();
+            return hostsByIp.Values
+                .OrderBy(host => host.IpAddress, IpAddressComparer)
+                .ToList();
         }
 
         public static bool TryListAdapters(out IReadOnlyList<AdapterListItemModel> adapters, out string? error)
         {
             adapters = Array.Empty<AdapterListItemModel>();
 
-            if (!TryLoadAllAdapters(out var catalog, out error))
+            if (!TryLoadCatalog(includeVirtualAdapters: true, out var catalog, out error))
             {
                 return false;
             }
@@ -113,7 +118,7 @@ namespace dznetcut.Logic
         {
             catalog = AdapterCatalogModel.Empty;
 
-            var ready = LibPcapDeviceExtensions.TryGetCaptureDevices(out var devices, out error);
+            var ready = TryGetCaptureDevices(out var devices, out error);
             if (!ready)
             {
                 error ??= "No capture adapters were found.";
@@ -128,7 +133,7 @@ namespace dznetcut.Logic
         {
             adapter = null;
 
-            if (!TryLoadAllAdapters(out var catalog, out error))
+            if (!TryLoadCatalog(includeVirtualAdapters: true, out var catalog, out error))
             {
                 error ??= "No adapters available.";
                 return false;
@@ -154,6 +159,73 @@ namespace dznetcut.Logic
             return true;
         }
 
+        private static bool TryGetCaptureDevices(out IReadOnlyList<LibPcapLiveDevice> devices, out string? errorMessage)
+        {
+            try
+            {
+                devices = CaptureDeviceList.Instance.OfType<LibPcapLiveDevice>().ToArray();
+                errorMessage = null;
+                return true;
+            }
+            catch (DllNotFoundException ex)
+            {
+                devices = Array.Empty<LibPcapLiveDevice>();
+                errorMessage = $"Packet capture driver not found. Install Npcap. [{ex.Message}]";
+                return false;
+            }
+            catch (TypeInitializationException ex)
+            {
+                devices = Array.Empty<LibPcapLiveDevice>();
+                errorMessage = $"Packet capture subsystem failed to initialize. [{ex.Message}]";
+                return false;
+            }
+            catch (BadImageFormatException ex)
+            {
+                devices = Array.Empty<LibPcapLiveDevice>();
+                errorMessage = $"Packet capture library architecture mismatch. [{ex.Message}]";
+                return false;
+            }
+            catch (PcapException ex)
+            {
+                devices = Array.Empty<LibPcapLiveDevice>();
+                errorMessage = $"Packet capture unavailable. [{ex.Message}]";
+                return false;
+            }
+        }
+
+        private static IComparer<IPAddress> CreateIpAddressComparer()
+            => Comparer<IPAddress>.Create((x, y) =>
+            {
+                if (ReferenceEquals(x, y))
+                {
+                    return 0;
+                }
+
+                if (x == null)
+                {
+                    return -1;
+                }
+
+                if (y == null)
+                {
+                    return 1;
+                }
+
+                var xBytes = x.GetAddressBytes();
+                var yBytes = y.GetAddressBytes();
+                var length = Math.Min(xBytes.Length, yBytes.Length);
+                for (var index = 0; index < length; index++)
+                {
+                    var comparison = xBytes[index].CompareTo(yBytes[index]);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+                }
+
+                return xBytes.Length.CompareTo(yBytes.Length);
+            });
+
         private static string BuildAdapterLabel(LibPcapLiveDevice device, AdapterSelectionOptionModel? option)
             => option?.DisplayText ?? (device.Interface?.FriendlyName ?? device.Name);
 
@@ -161,8 +233,6 @@ namespace dznetcut.Logic
             => catalog.OptionsByDeviceId.Values.FirstOrDefault(o => string.Equals(o.DeviceId, adapterValue, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(o.DisplayText, adapterValue, StringComparison.OrdinalIgnoreCase));
 
-        private static bool TryLoadAllAdapters(out AdapterCatalogModel catalog, out string? error)
-                            => TryLoadCatalog(includeVirtualAdapters: true, out catalog, out error);
     }
 
     internal sealed class AdapterCatalogModel

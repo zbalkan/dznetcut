@@ -12,9 +12,8 @@ namespace dznetcut.Logic
 
         public static IReadOnlyDictionary<string, bool> BuildByInterfaceId(IEnumerable<NetworkInterface> interfaces)
         {
-            var msftMap = ReadMsftHardwareInterfaceMap();
-            var win32PhysicalMap = ReadWin32PhysicalAdapterMap();
-            var pnpMap = ReadWin32PnpDeviceMap();
+            var pnpByConfigId = ReadWin32PnpDeviceMap();
+            var classificationByConfigId = BuildByConfigIdMap(pnpByConfigId);
             var result = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var networkInterface in interfaces)
@@ -24,28 +23,26 @@ namespace dznetcut.Logic
                     continue;
                 }
 
-                if (msftMap.TryGetValue(networkInterface.Id, out var msftPhysical))
+                if (classificationByConfigId.TryGetValue(networkInterface.Id, out var classification))
                 {
-                    result[networkInterface.Id] = msftPhysical;
+                    result[networkInterface.Id] = classification;
                     continue;
                 }
 
-                if (win32PhysicalMap.TryGetValue(networkInterface.Id, out var win32Physical))
-                {
-                    result[networkInterface.Id] = win32Physical;
-                    continue;
-                }
-
-                if (pnpMap.TryGetValue(networkInterface.Id, out var pnpDeviceId))
-                {
-                    result[networkInterface.Id] = IsLikelyPhysicalPnpDeviceId(pnpDeviceId);
-                    continue;
-                }
-
-                result[networkInterface.Id] = AdapterSelectionService.IsLikelyPhysicalAdapter(networkInterface.NetworkInterfaceType, networkInterface.GetPhysicalAddress());
+                result[networkInterface.Id] = IsLikelyPhysicalPnpDeviceId(
+                    pnpByConfigId.TryGetValue(networkInterface.Id, out var pnp) ? pnp : null);
             }
 
             return result;
+        }
+
+        private static IReadOnlyDictionary<string, bool> BuildByConfigIdMap(IReadOnlyDictionary<string, string> pnpByConfigId)
+        {
+            var map = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            BuildFromMsftNetAdapter(map);
+            BuildFromWin32PhysicalAdapter(map);
+            BuildFromPnpPrefixes(map, pnpByConfigId);
+            return map;
         }
 
         internal static bool IsLikelyPhysicalPnpDeviceId(string? pnpDeviceId)
@@ -58,10 +55,8 @@ namespace dznetcut.Logic
             return PhysicalBusPrefixes.Any(prefix => pnpDeviceId!.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static Dictionary<string, bool> ReadMsftHardwareInterfaceMap()
+        private static void BuildFromMsftNetAdapter(IDictionary<string, bool> map)
         {
-            var map = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-
             try
             {
                 var scope = new ManagementScope(@"\\.\root\StandardCimv2");
@@ -69,8 +64,7 @@ namespace dznetcut.Logic
                 using var searcher = new ManagementObjectSearcher(
                     scope,
                     new ObjectQuery("SELECT InterfaceGuid, HardwareInterface FROM MSFT_NetAdapter WHERE InterfaceGuid IS NOT NULL"));
-                using var adapters = searcher.Get();
-                foreach (var adapter in adapters.OfType<ManagementObject>())
+                foreach (var adapter in searcher.Get().Cast<ManagementObject>())
                 {
                     var guid = adapter["InterfaceGuid"] as string;
                     if (string.IsNullOrWhiteSpace(guid) || map.ContainsKey(guid!))
@@ -87,20 +81,14 @@ namespace dznetcut.Logic
             catch
             {
             }
-
-            return map;
         }
 
-        private static Dictionary<string, bool> ReadWin32PhysicalAdapterMap()
+        private static void BuildFromWin32PhysicalAdapter(IDictionary<string, bool> map)
         {
-            var map = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-
             try
             {
-                using var searcher = new ManagementObjectSearcher(
-                    "SELECT GUID, PhysicalAdapter FROM Win32_NetworkAdapter WHERE GUID IS NOT NULL AND PhysicalAdapter IS NOT NULL");
-                using var adapters = searcher.Get();
-                foreach (var adapter in adapters.OfType<ManagementObject>())
+                using var searcher = new ManagementObjectSearcher("SELECT GUID, PhysicalAdapter FROM Win32_NetworkAdapter WHERE GUID IS NOT NULL AND PhysicalAdapter IS NOT NULL");
+                foreach (var adapter in searcher.Get().Cast<ManagementObject>())
                 {
                     var guid = adapter["GUID"] as string;
                     if (string.IsNullOrWhiteSpace(guid) || map.ContainsKey(guid!))
@@ -117,8 +105,19 @@ namespace dznetcut.Logic
             catch
             {
             }
+        }
 
-            return map;
+        private static void BuildFromPnpPrefixes(IDictionary<string, bool> map, IReadOnlyDictionary<string, string> pnpByConfigId)
+        {
+            foreach (var pair in pnpByConfigId)
+            {
+                if (map.ContainsKey(pair.Key))
+                {
+                    continue;
+                }
+
+                map[pair.Key] = IsLikelyPhysicalPnpDeviceId(pair.Value);
+            }
         }
 
         private static Dictionary<string, string> ReadWin32PnpDeviceMap()
@@ -127,19 +126,15 @@ namespace dznetcut.Logic
 
             try
             {
-                using var searcher = new ManagementObjectSearcher(
-                    "SELECT GUID, PNPDeviceID FROM Win32_NetworkAdapter WHERE GUID IS NOT NULL AND PNPDeviceID IS NOT NULL");
-                using var adapters = searcher.Get();
-                foreach (var adapter in adapters.OfType<ManagementObject>())
+                using var searcher = new ManagementObjectSearcher("SELECT GUID, PNPDeviceID FROM Win32_NetworkAdapter WHERE GUID IS NOT NULL AND PNPDeviceID IS NOT NULL");
+                foreach (var adapter in searcher.Get().Cast<ManagementObject>())
                 {
                     var guid = adapter["GUID"] as string;
                     var pnpDeviceId = adapter["PNPDeviceID"] as string;
-                    if (string.IsNullOrWhiteSpace(guid) || string.IsNullOrWhiteSpace(pnpDeviceId) || map.ContainsKey(guid!))
+                    if (!string.IsNullOrWhiteSpace(guid) && !string.IsNullOrWhiteSpace(pnpDeviceId))
                     {
-                        continue;
+                        map[guid!] = pnpDeviceId!;
                     }
-
-                    map[guid!] = pnpDeviceId!;
                 }
             }
             catch

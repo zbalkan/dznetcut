@@ -7,7 +7,6 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;
-using System.Threading;
 using System.Windows.Forms;
 using dznetcut.Logic;
 using SharpPcap;
@@ -24,7 +23,6 @@ namespace dznetcut.GUI
         private readonly Dictionary<string, string> _displayTextByDeviceId = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly NetworkScanner _networkScanner;
         private readonly Dictionary<string, LibPcapLiveDevice> _pcapDevicesById = new Dictionary<string, LibPcapLiveDevice>(StringComparer.Ordinal);
-        private readonly SynchronizationContext? _uiContext;
 
         private IPAddress? _gatewayIpAddress;
         private bool _isArpProtectionApplied;
@@ -37,7 +35,6 @@ namespace dznetcut.GUI
         public ScannerForm()
         {
             InitializeComponent();
-            _uiContext = SynchronizationContext.Current;
             _arpSpoofer = new Spoofer(Log);
             _networkScanner = new NetworkScanner(Log);
             _arpSpoofer.SpoofingStateChanged += _ => SafeUpdateUiState();
@@ -471,34 +468,24 @@ namespace dznetcut.GUI
 
         private void RunOnUiThread(Action action)
         {
-            if (!IsHandleCreated || IsDisposed)
+            if (IsDisposed || !IsHandleCreated)
             {
                 return;
             }
 
-            if (_uiContext != null && _uiContext == SynchronizationContext.Current)
+            if (!InvokeRequired)
             {
                 action();
                 return;
             }
 
-            if (InvokeRequired)
+            try
             {
-                try
-                {
-                    BeginInvoke(action);
-                }
-                catch (ObjectDisposedException)
-                {
-                }
-                catch (InvalidOperationException)
-                {
-                }
-
-                return;
+                BeginInvoke(action);
             }
-
-            action();
+            catch (Exception ex) when (ex is ObjectDisposedException || ex is InvalidOperationException)
+            {
+            }
         }
 
         private void SafeUpdateUiState() => RunOnUiThread(UpdateUiState);

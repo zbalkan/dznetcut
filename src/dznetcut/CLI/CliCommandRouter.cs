@@ -63,10 +63,8 @@ namespace dznetcut.CLI
 
         private int Scan(CliArguments arguments)
         {
-            arguments.TryGetOption("adapter", out var adapterValue);
-            if (!AdapterCatalogService.TryResolveAdapter(adapterValue, out var adapter, out var error))
+            if (!TryResolveAdapter(arguments, out var adapter))
             {
-                _writeLine(error!);
                 return 2;
             }
 
@@ -92,10 +90,8 @@ namespace dznetcut.CLI
 
         private int Cut(CliArguments arguments)
         {
-            arguments.TryGetOption("adapter", out var adapterValue);
-            if (!AdapterCatalogService.TryResolveAdapter(adapterValue, out var adapter, out var error))
+            if (!TryResolveAdapter(arguments, out var adapter))
             {
-                _writeLine(error!);
                 return 2;
             }
 
@@ -168,6 +164,19 @@ namespace dznetcut.CLI
         private static int TryGetIntOption(CliArguments arguments, string key, int fallback) => arguments.TryGetOption(key, out var value) && int.TryParse(value, out var parsed)
                 ? parsed
                 : fallback;
+
+        private bool TryResolveAdapter(CliArguments arguments, out LibPcapLiveDevice? adapter)
+        {
+            adapter = null;
+            arguments.TryGetOption("adapter", out var adapterValue);
+            if (AdapterCatalogService.TryResolveAdapter(adapterValue, out adapter, out var error))
+            {
+                return true;
+            }
+
+            _writeLine(error!);
+            return false;
+        }
 
         private bool TryGetDurationSeconds(CliArguments arguments, out int durationSeconds)
         {

@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using SharpPcap;
 using SharpPcap.LibPcap;
 
 namespace dznetcut.Logic
@@ -12,39 +10,6 @@ namespace dznetcut.Logic
         public static IPAddress ReadCurrentIpV4Address(this LibPcapLiveDevice device) =>
             ReadCurrentNetworkInfo(device).ipAddress;
 
-        public static bool TryGetCaptureDevices(out IReadOnlyList<LibPcapLiveDevice> devices, out string? errorMessage)
-        {
-            try
-            {
-                devices = CaptureDeviceList.Instance.OfType<LibPcapLiveDevice>().ToArray();
-                errorMessage = null;
-                return true;
-            }
-            catch (DllNotFoundException ex)
-            {
-                devices = Array.Empty<LibPcapLiveDevice>();
-                errorMessage = $"Packet capture driver not found. Install Npcap. [{ex.Message}]";
-                return false;
-            }
-            catch (TypeInitializationException ex)
-            {
-                devices = Array.Empty<LibPcapLiveDevice>();
-                errorMessage = $"Packet capture subsystem failed to initialize. [{ex.Message}]";
-                return false;
-            }
-            catch (BadImageFormatException ex)
-            {
-                devices = Array.Empty<LibPcapLiveDevice>();
-                errorMessage = $"Packet capture library architecture mismatch. [{ex.Message}]";
-                return false;
-            }
-            catch (PcapException ex)
-            {
-                devices = Array.Empty<LibPcapLiveDevice>();
-                errorMessage = $"Packet capture unavailable. [{ex.Message}]";
-                return false;
-            }
-        }
         internal static IPV4Subnet ReadCurrentSubnet(this LibPcapLiveDevice device)
         {
             var (ipAddress, subnetMask) = ReadCurrentNetworkInfo(device);
