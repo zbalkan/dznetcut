@@ -101,7 +101,7 @@ namespace dznetcut.GUI
             this.toolStripMenuItemSaveSettings.Size = new System.Drawing.Size(163, 22);
             this.toolStripMenuItemSaveSettings.Text = "Save";
             this.toolStripMenuItemSaveSettings.ToolTipText = "Save current settings";
-            this.toolStripMenuItemSaveSettings.Click += new System.EventHandler(this.toolStripMenuItemSaveSettings_Click);
+            this.toolStripMenuItemSaveSettings.Click += new System.EventHandler(this.ToolStripMenuItemSaveSettings_Click);
             // 
             // exitToolStripMenuItem
             // 
@@ -109,7 +109,7 @@ namespace dznetcut.GUI
             this.exitToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Q)));
             this.exitToolStripMenuItem.Size = new System.Drawing.Size(135, 22);
             this.exitToolStripMenuItem.Text = "Exit";
-            this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
+            this.exitToolStripMenuItem.Click += new System.EventHandler(this.ExitToolStripMenuItem_Click);
             // 
             // editToolStripMenuItem
             // 
@@ -151,7 +151,7 @@ namespace dznetcut.GUI
             this.toolStripMenuItemSelectAllAdapters.Size = new System.Drawing.Size(193, 22);
             this.toolStripMenuItemSelectAllAdapters.Text = "Show All Adapters";
             this.toolStripMenuItemSelectAllAdapters.ToolTipText = "Include virtual adapters in addition to physical adapters";
-            this.toolStripMenuItemSelectAllAdapters.CheckStateChanged += new System.EventHandler(this.toolStripMenuItemSelectAllAdapters_CheckStateChanged);
+            this.toolStripMenuItemSelectAllAdapters.CheckStateChanged += new System.EventHandler(this.ToolStripMenuItemSelectAllAdapters_CheckStateChanged);
             // 
             // 
             // toolStripMenuItemArpProtection
@@ -163,7 +163,7 @@ namespace dznetcut.GUI
             this.toolStripMenuItemArpProtection.Size = new System.Drawing.Size(193, 22);
             this.toolStripMenuItemArpProtection.Text = "Enable ARP Protection";
             this.toolStripMenuItemArpProtection.ToolTipText = "Pin the gateway ARP entry while traffic cut is active";
-            this.toolStripMenuItemArpProtection.CheckStateChanged += new System.EventHandler(this.toolStripMenuItemArpProtection_CheckStateChanged);
+            this.toolStripMenuItemArpProtection.CheckStateChanged += new System.EventHandler(this.ToolStripMenuItemArpProtection_CheckStateChanged);
             // 
             // toolStripMenuItemStealthMode
             // 
@@ -172,7 +172,7 @@ namespace dznetcut.GUI
             this.toolStripMenuItemStealthMode.Size = new System.Drawing.Size(193, 22);
             this.toolStripMenuItemStealthMode.Text = "Stealth mode";
             this.toolStripMenuItemStealthMode.ToolTipText = "Use slower randomized discovery pacing.";
-            this.toolStripMenuItemStealthMode.CheckStateChanged += new System.EventHandler(this.toolStripMenuItemStealthMode_CheckStateChanged);
+            this.toolStripMenuItemStealthMode.CheckStateChanged += new System.EventHandler(this.ToolStripMenuItemStealthMode_CheckStateChanged);
             // 
             // toolStripSeparator3
             // 
@@ -190,7 +190,7 @@ namespace dznetcut.GUI
             this.cutoffToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
             this.cutoffToolStripMenuItem.Text = "Cut Traffic";
             this.cutoffToolStripMenuItem.ToolTipText = "Disconnect selected clients";
-            this.cutoffToolStripMenuItem.Click += new System.EventHandler(this.cutoffToolStripMenuItem_Click);
+            this.cutoffToolStripMenuItem.Click += new System.EventHandler(this.CutoffToolStripMenuItem_Click);
             // 
             // reconnectToolStripMenuItem
             // 
@@ -199,7 +199,7 @@ namespace dznetcut.GUI
             this.reconnectToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
             this.reconnectToolStripMenuItem.Text = "Restore Traffic";
             this.reconnectToolStripMenuItem.ToolTipText = "Restore normal ARP traffic";
-            this.reconnectToolStripMenuItem.Click += new System.EventHandler(this.reconnectToolStripMenuItem_Click);
+            this.reconnectToolStripMenuItem.Click += new System.EventHandler(this.ReconnectToolStripMenuItem_Click);
             // 
             // toolStripSeparator2
             // 
@@ -213,7 +213,7 @@ namespace dznetcut.GUI
             this.toolStripMenuItemRefreshClients.Size = new System.Drawing.Size(193, 22);
             this.toolStripMenuItemRefreshClients.Text = "Start Network Scan";
             this.toolStripMenuItemRefreshClients.ToolTipText = "Refresh active client list";
-            this.toolStripMenuItemRefreshClients.Click += new System.EventHandler(this.toolStripMenuItemRefreshClients_Click);
+            this.toolStripMenuItemRefreshClients.Click += new System.EventHandler(this.ToolStripMenuItemRefreshClients_Click);
             // 
             // helpToolStripMenuItem
             // 
@@ -229,14 +229,14 @@ namespace dznetcut.GUI
             this.commandLineParametersToolStripMenuItem.Name = "commandLineParametersToolStripMenuItem";
             this.commandLineParametersToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
             this.commandLineParametersToolStripMenuItem.Text = "Command line parameters";
-            this.commandLineParametersToolStripMenuItem.Click += new System.EventHandler(this.commandLineParametersToolStripMenuItem_Click);
+            this.commandLineParametersToolStripMenuItem.Click += new System.EventHandler(this.CommandLineParametersToolStripMenuItem_Click);
             // 
             // aboutdznetcutToolStripMenuItem
             // 
             this.aboutdznetcutToolStripMenuItem.Name = "aboutdznetcutToolStripMenuItem";
             this.aboutdznetcutToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
             this.aboutdznetcutToolStripMenuItem.Text = "About dznetcut";
-            this.aboutdznetcutToolStripMenuItem.Click += new System.EventHandler(this.aboutdznetcutToolStripMenuItem_Click);
+            this.aboutdznetcutToolStripMenuItem.Click += new System.EventHandler(this.AboutDznetcutToolStripMenuItem_Click);
             // 
             // statusStrip1
             // 
@@ -295,14 +295,14 @@ namespace dznetcut.GUI
             this.clearStripMenuItem.Name = "clearStripMenuItem";
             this.clearStripMenuItem.Size = new System.Drawing.Size(123, 22);
             this.clearStripMenuItem.Text = "Clear";
-            this.clearStripMenuItem.Click += new System.EventHandler(this.clearStripMenuItem_Click);
+            this.clearStripMenuItem.Click += new System.EventHandler(this.ClearStripMenuItem_Click);
             // 
             // saveStripMenuItem
             // 
             this.saveStripMenuItem.Name = "saveStripMenuItem";
             this.saveStripMenuItem.Size = new System.Drawing.Size(123, 22);
             this.saveStripMenuItem.Text = "Save";
-            this.saveStripMenuItem.Click += new System.EventHandler(this.saveStripMenuItem_Click);
+            this.saveStripMenuItem.Click += new System.EventHandler(this.SaveStripMenuItem_Click);
             // 
             // showLogToolStripMenuItem
             // 
@@ -310,7 +310,7 @@ namespace dznetcut.GUI
             this.showLogToolStripMenuItem.Name = "showLogToolStripMenuItem";
             this.showLogToolStripMenuItem.Size = new System.Drawing.Size(123, 22);
             this.showLogToolStripMenuItem.Text = "Show log";
-            this.showLogToolStripMenuItem.CheckStateChanged += new System.EventHandler(this.showLogToolStripMenuItem_CheckStateChanged);
+            this.showLogToolStripMenuItem.CheckStateChanged += new System.EventHandler(this.ShowLogToolStripMenuItem_CheckStateChanged);
             // 
             // clientListView
             // 
@@ -332,10 +332,10 @@ namespace dznetcut.GUI
             this.clientListView.TabIndex = 2;
             this.clientListView.UseCompatibleStateImageBehavior = false;
             this.clientListView.View = System.Windows.Forms.View.Details;
-            this.clientListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.clientListView_ItemSelectionChanged);
-            this.clientListView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.clientListView_MouseDown);
-            this.clientListView.DoubleClick += new System.EventHandler(this.clientListView_DoubleClick);
-            this.clientListView.Resize += new System.EventHandler(this.clientListView_Resize);
+            this.clientListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.ClientListView_ItemSelectionChanged);
+            this.clientListView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.ClientListView_MouseDown);
+            this.clientListView.DoubleClick += new System.EventHandler(this.ClientListView_DoubleClick);
+            this.clientListView.Resize += new System.EventHandler(this.ClientListView_Resize);
             // 
             // columnHeaderIP
             // 
@@ -375,7 +375,7 @@ namespace dznetcut.GUI
             this.stopNetworkScanToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
             this.stopNetworkScanToolStripMenuItem.Text = "Stop Network Scan";
             this.stopNetworkScanToolStripMenuItem.ToolTipText = "Stop scanning";
-            this.stopNetworkScanToolStripMenuItem.Click += new System.EventHandler(this.stopNetworkScanToolStripMenuItem_Click);
+            this.stopNetworkScanToolStripMenuItem.Click += new System.EventHandler(this.StopNetworkScanToolStripMenuItem_Click);
             // 
             // ScannerForm
             // 
@@ -390,7 +390,7 @@ namespace dznetcut.GUI
             this.Name = "ScannerForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "dznetcut";
-            this.Load += new System.EventHandler(this.Form1_Load);
+            this.Load += new System.EventHandler(this.ScannerForm_Load);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.statusStrip1.ResumeLayout(false);

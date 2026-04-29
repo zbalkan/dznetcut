@@ -79,7 +79,7 @@ namespace dznetcut.GUI
             }
         }
 
-        private void aboutdznetcutToolStripMenuItem_Click(object sender, EventArgs e)
+        private void AboutDznetcutToolStripMenuItem_Click(object sender, EventArgs e)
         {
             const string aboutText =
                 "dznetcut v2.0.0\n" +
@@ -92,7 +92,7 @@ namespace dznetcut.GUI
                 "DeltaZulu Hash: cbaba0b\n\n" +
                 "Source: github.com/DeltaZulu-OU/dznetcut";
 
-            _ = MessageBox.Show(aboutText, "about dznetcut", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _ = MessageBox.Show(aboutText, "About dznetcut", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void AddClientToList(IPAddress ipAddress, PhysicalAddress macAddress, bool isGateway)
@@ -181,7 +181,7 @@ namespace dznetcut.GUI
             return selectedOption.InterfaceId!;
         }
 
-        private void commandLineParametersToolStripMenuItem_Click(object sender, EventArgs e)
+        private void CommandLineParametersToolStripMenuItem_Click(object sender, EventArgs e)
             => _ = MessageBox.Show(CLI.CliHelpText.Build(), "Command line parameters", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         private string BuildUniqueDisplayText(AdapterSelectionOptionModel option)
@@ -206,9 +206,9 @@ namespace dznetcut.GUI
             return candidate;
         }
 
-        private void clearStripMenuItem_Click(object sender, EventArgs e) => richTextBoxLog.Clear();
+        private void ClearStripMenuItem_Click(object sender, EventArgs e) => richTextBoxLog.Clear();
 
-        private void clientListView_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
+        private void ClientListView_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
         {
             if (!e.IsSelected || !IsProtectedTarget(e.Item))
             {
@@ -224,7 +224,7 @@ namespace dznetcut.GUI
             UpdateUiState();
         }
 
-        private void clientListView_MouseDown(object sender, MouseEventArgs e)
+        private void ClientListView_MouseDown(object sender, MouseEventArgs e)
         {
             var hit = clientListView.HitTest(e.Location);
             if (hit.Item == null || !IsProtectedTarget(hit.Item))
@@ -233,7 +233,7 @@ namespace dznetcut.GUI
             }
         }
 
-        private void clientListView_Resize(object sender, EventArgs e)
+        private void ClientListView_Resize(object sender, EventArgs e)
         {
             AdjustClientListViewLayout();
             if (_inlineNameEditor != null && _inlineNameEditor.Tag is ListViewItem item)
@@ -242,7 +242,7 @@ namespace dznetcut.GUI
             }
         }
 
-        private void clientListView_DoubleClick(object sender, EventArgs e)
+        private void ClientListView_DoubleClick(object sender, EventArgs e)
         {
             if (_arpTrafficCutter.IsTrafficCutActive)
             {
@@ -283,14 +283,14 @@ namespace dznetcut.GUI
                 Tag = item
             };
 
-            _inlineNameEditor.KeyDown += inlineNameEditor_KeyDown;
-            _inlineNameEditor.LostFocus += inlineNameEditor_LostFocus;
+            _inlineNameEditor.KeyDown += InlineNameEditor_KeyDown;
+            _inlineNameEditor.LostFocus += InlineNameEditor_LostFocus;
             clientListView.Controls.Add(_inlineNameEditor);
             _inlineNameEditor.Focus();
             _inlineNameEditor.SelectAll();
         }
 
-        private void inlineNameEditor_KeyDown(object sender, KeyEventArgs e)
+        private void InlineNameEditor_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter)
             {
@@ -304,7 +304,7 @@ namespace dznetcut.GUI
             }
         }
 
-        private void inlineNameEditor_LostFocus(object sender, EventArgs e) => EndInlineNameEdit(true);
+        private void InlineNameEditor_LostFocus(object sender, EventArgs e) => EndInlineNameEdit(true);
 
         private void EndInlineNameEdit(bool commit)
         {
@@ -318,8 +318,8 @@ namespace dznetcut.GUI
                 item.SubItems[3].Text = _inlineNameEditor.Text;
             }
 
-            _inlineNameEditor.KeyDown -= inlineNameEditor_KeyDown;
-            _inlineNameEditor.LostFocus -= inlineNameEditor_LostFocus;
+            _inlineNameEditor.KeyDown -= InlineNameEditor_KeyDown;
+            _inlineNameEditor.LostFocus -= InlineNameEditor_LostFocus;
             clientListView.Controls.Remove(_inlineNameEditor);
             _inlineNameEditor.Dispose();
             _inlineNameEditor = null;
@@ -343,7 +343,7 @@ namespace dznetcut.GUI
             }
         }
 
-        private void cutoffToolStripMenuItem_Click(object sender, EventArgs e) => DisconnectSelectedClients();
+        private void CutoffToolStripMenuItem_Click(object sender, EventArgs e) => DisconnectSelectedClients();
 
         private void DisconnectSelectedClients()
         {
@@ -434,9 +434,9 @@ namespace dznetcut.GUI
             TryDisableArpProtection();
         }
 
-        private void exitToolStripMenuItem_Click(object sender, EventArgs e) => Close();
+        private void ExitToolStripMenuItem_Click(object sender, EventArgs e) => Close();
 
-        private void Form1_Load(object sender, EventArgs e)
+        private void ScannerForm_Load(object sender, EventArgs e)
         {
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             PopulateAdapterDropDown(ApplicationSettings.GetSavedPreferredInterfaceFriendlyName());
@@ -539,7 +539,7 @@ namespace dznetcut.GUI
             UpdateUiState();
         }
 
-        private void reconnectToolStripMenuItem_Click(object sender, EventArgs e) => ReconnectClients();
+        private void ReconnectToolStripMenuItem_Click(object sender, EventArgs e) => ReconnectClients();
 
         private PhysicalAddress ResolveGatewayMacFromList()
         {
@@ -578,7 +578,7 @@ namespace dznetcut.GUI
 
         private void SafeUpdateUiState() => RunOnUiThread(UpdateUiState);
 
-        private void saveStripMenuItem_Click(object sender, EventArgs e)
+        private void SaveStripMenuItem_Click(object sender, EventArgs e)
         {
             saveFileDialog1.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
             saveFileDialog1.InitialDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -600,7 +600,7 @@ namespace dznetcut.GUI
             }
         }
 
-        private void showLogToolStripMenuItem_CheckStateChanged(object sender, EventArgs e) => ApplyLogVisibility(showLogToolStripMenuItem.Checked);
+        private void ShowLogToolStripMenuItem_CheckStateChanged(object sender, EventArgs e) => ApplyLogVisibility(showLogToolStripMenuItem.Checked);
 
         private void StartNetworkScan()
         {
@@ -647,13 +647,13 @@ namespace dznetcut.GUI
             UpdateUiState();
         }
 
-        private void stopNetworkScanToolStripMenuItem_Click(object sender, EventArgs e)
+        private void StopNetworkScanToolStripMenuItem_Click(object sender, EventArgs e)
         {
             StopNetworkScan();
             toolStripStatus.Text = "Scan stopped!";
         }
 
-        private void toolStripMenuItemArpProtection_CheckStateChanged(object sender, EventArgs e)
+        private void ToolStripMenuItemArpProtection_CheckStateChanged(object sender, EventArgs e)
         {
             if (!toolStripMenuItemArpProtection.Checked)
             {
@@ -661,7 +661,7 @@ namespace dznetcut.GUI
             }
         }
 
-        private void toolStripMenuItemStealthMode_CheckStateChanged(object sender, EventArgs e)
+        private void ToolStripMenuItemStealthMode_CheckStateChanged(object sender, EventArgs e)
         {
             _networkScanner.SetStealthMode(toolStripMenuItemStealthMode.Checked);
             toolStripStatus.Text = toolStripMenuItemStealthMode.Checked
@@ -669,9 +669,9 @@ namespace dznetcut.GUI
                 : "Stealth mode disabled.";
         }
 
-        private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e) => StartNetworkScan();
+        private void ToolStripMenuItemRefreshClients_Click(object sender, EventArgs e) => StartNetworkScan();
 
-        private void toolStripMenuItemSaveSettings_Click(object sender, EventArgs e)
+        private void ToolStripMenuItemSaveSettings_Click(object sender, EventArgs e)
         {
             if (ApplicationSettings.SaveSettings(clientListView, toolStripComboBoxDevicelist.Text, showLogToolStripMenuItem.Checked))
             {
@@ -679,7 +679,7 @@ namespace dznetcut.GUI
             }
         }
 
-        private void toolStripMenuItemSelectAllAdapters_CheckStateChanged(object sender, EventArgs e) => PopulateAdapterDropDown(toolStripComboBoxDevicelist.Text);
+        private void ToolStripMenuItemSelectAllAdapters_CheckStateChanged(object sender, EventArgs e) => PopulateAdapterDropDown(toolStripComboBoxDevicelist.Text);
 
         private void TryDisableArpProtection()
         {
