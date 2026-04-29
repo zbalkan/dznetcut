@@ -45,8 +45,6 @@ namespace dznetcut.GUI
             this.toolStripMenuItemArpProtection = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemStealthMode = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
-            this.ClientNametoolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripTextBoxClientName = new System.Windows.Forms.ToolStripTextBox();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.cutoffToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.reconnectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -69,7 +67,7 @@ namespace dznetcut.GUI
             this.columnHeaderMAC = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeaderCutoffStatus = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeaderClientname = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
+            this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.richTextBoxLog = new System.Windows.Forms.RichTextBox();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             this.stopNetworkScanToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -119,15 +117,15 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // 
             this.editToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripMenuItemChooseInterface,
+            this.toolStripSeparator1,
             this.toolStripMenuItemSelectAllAdapters,
             this.toolStripMenuItemArpProtection,
             this.toolStripMenuItemStealthMode,
-            this.toolStripSeparator3,
-            this.ClientNametoolStripMenuItem,
-            this.toolStripSeparator1,
+            this.toolStripSeparator2,
             this.cutoffToolStripMenuItem,
             this.reconnectToolStripMenuItem,
-            this.toolStripSeparator2,
+
+            this.toolStripSeparator3,
             this.toolStripMenuItemRefreshClients,
             this.stopNetworkScanToolStripMenuItem});
             this.editToolStripMenuItem.Name = "editToolStripMenuItem";
@@ -182,23 +180,6 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
             this.toolStripSeparator3.Size = new System.Drawing.Size(190, 6);
-            // 
-            // ClientNametoolStripMenuItem
-            // 
-            this.ClientNametoolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripTextBoxClientName});
-            this.ClientNametoolStripMenuItem.Name = "ClientNametoolStripMenuItem";
-            this.ClientNametoolStripMenuItem.Size = new System.Drawing.Size(193, 22);
-            this.ClientNametoolStripMenuItem.Text = "Enter Client Name";
-            this.ClientNametoolStripMenuItem.ToolTipText = "Enter a name for the selected client";
-            // 
-            // toolStripTextBoxClientName
-            // 
-            this.toolStripTextBoxClientName.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.toolStripTextBoxClientName.Name = "toolStripTextBoxClientName";
-            this.toolStripTextBoxClientName.Size = new System.Drawing.Size(100, 23);
-            this.toolStripTextBoxClientName.KeyUp += new System.Windows.Forms.KeyEventHandler(this.toolStripTextBoxClientName_KeyUp);
-            // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
@@ -335,8 +316,8 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // 
             // clientListView
             // 
-            this.clientListView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
+            this.clientListView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.clientListView.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeaderIP,
@@ -354,6 +335,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.clientListView.UseCompatibleStateImageBehavior = false;
             this.clientListView.View = System.Windows.Forms.View.Details;
             this.clientListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.clientListView_ItemSelectionChanged);
+            this.clientListView.DoubleClick += new System.EventHandler(this.clientListView_DoubleClick);
             this.clientListView.Resize += new System.EventHandler(this.clientListView_Resize);
             // 
             // columnHeaderIP
@@ -384,7 +366,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // 
             // richTextBoxLog
             // 
-            this.richTextBoxLog.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            this.richTextBoxLog.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.richTextBoxLog.Location = new System.Drawing.Point(12, 227);
             this.richTextBoxLog.Name = "richTextBoxLog";
@@ -439,7 +421,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatus;
         private System.Windows.Forms.ListView clientListView;
-private System.Windows.Forms.ColumnHeader columnHeaderIP;
+        private System.Windows.Forms.ColumnHeader columnHeaderIP;
         private System.Windows.Forms.ColumnHeader columnHeaderMAC;
         private System.Windows.Forms.ColumnHeader columnHeaderCutoffStatus;
         private System.Windows.Forms.ToolStripMenuItem editToolStripMenuItem;
@@ -448,8 +430,6 @@ private System.Windows.Forms.ColumnHeader columnHeaderIP;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.NotifyIcon notifyIcon1;
         private System.Windows.Forms.ColumnHeader columnHeaderClientname;
-        private System.Windows.Forms.ToolStripMenuItem ClientNametoolStripMenuItem;
-        private System.Windows.Forms.ToolStripTextBox toolStripTextBoxClientName;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSaveSettings;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemChooseInterface;
         private System.Windows.Forms.ToolStripComboBox toolStripComboBoxDevicelist;

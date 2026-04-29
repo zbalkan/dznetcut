@@ -26,7 +26,8 @@ namespace dznetcut.GUI
 
         private IPAddress? _gatewayIpAddress;
         private bool _isArpProtectionApplied;
-        private string? _nameEditorSelectionKey;
+
+        private TextBox? _inlineNameEditor;
         private LibPcapLiveDevice? _selectedDevice;
         private string? _selectedInterfaceFriendlyName;
         private IPAddress? _sourceIpAddress;
@@ -220,7 +221,97 @@ namespace dznetcut.GUI
             UpdateUiState();
         }
 
-        private void clientListView_Resize(object sender, EventArgs e) => AdjustClientListViewLayout();
+        private void clientListView_Resize(object sender, EventArgs e)
+        {
+            AdjustClientListViewLayout();
+            if (_inlineNameEditor != null && _inlineNameEditor.Tag is ListViewItem item)
+            {
+                _inlineNameEditor.Bounds = item.SubItems[3].Bounds;
+            }
+        }
+
+        private void clientListView_DoubleClick(object sender, EventArgs e)
+        {
+            if (_arpTrafficCutter.IsTrafficCutActive)
+            {
+                return;
+            }
+
+            var cursorPosition = clientListView.PointToClient(Cursor.Position);
+            var hit = clientListView.HitTest(cursorPosition);
+            if (hit.Item == null || hit.SubItem == null)
+            {
+                return;
+            }
+
+            var nameColumnIndex = 3;
+            var clickedIndex = hit.Item.SubItems.IndexOf(hit.SubItem);
+            if (clickedIndex != nameColumnIndex)
+            {
+                return;
+            }
+
+            if (IsProtectedTarget(hit.Item))
+            {
+                toolStripStatus.Text = "Gateway/source names are fixed and cannot be edited.";
+                return;
+            }
+
+            BeginInlineNameEdit(hit.Item, hit.SubItem.Bounds);
+        }
+
+        private void BeginInlineNameEdit(ListViewItem item, System.Drawing.Rectangle bounds)
+        {
+            EndInlineNameEdit(false);
+
+            _inlineNameEditor = new TextBox
+            {
+                Bounds = bounds,
+                Text = item.SubItems[3].Text,
+                Tag = item
+            };
+
+            _inlineNameEditor.KeyDown += inlineNameEditor_KeyDown;
+            _inlineNameEditor.LostFocus += inlineNameEditor_LostFocus;
+            clientListView.Controls.Add(_inlineNameEditor);
+            _inlineNameEditor.Focus();
+            _inlineNameEditor.SelectAll();
+        }
+
+        private void inlineNameEditor_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                EndInlineNameEdit(true);
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Escape)
+            {
+                EndInlineNameEdit(false);
+                e.Handled = true;
+            }
+        }
+
+        private void inlineNameEditor_LostFocus(object sender, EventArgs e) => EndInlineNameEdit(true);
+
+        private void EndInlineNameEdit(bool commit)
+        {
+            if (_inlineNameEditor == null)
+            {
+                return;
+            }
+
+            if (commit && _inlineNameEditor.Tag is ListViewItem item)
+            {
+                item.SubItems[3].Text = _inlineNameEditor.Text;
+            }
+
+            _inlineNameEditor.KeyDown -= inlineNameEditor_KeyDown;
+            _inlineNameEditor.LostFocus -= inlineNameEditor_LostFocus;
+            clientListView.Controls.Remove(_inlineNameEditor);
+            _inlineNameEditor.Dispose();
+            _inlineNameEditor = null;
+        }
 
         private void CloseSelectedDevice()
         {
@@ -593,16 +684,6 @@ namespace dznetcut.GUI
 
         private void toolStripMenuItemSelectAllAdapters_CheckStateChanged(object sender, EventArgs e) => PopulateAdapterDropDown(toolStripComboBoxDevicelist.Text);
 
-        private void toolStripTextBoxClientName_KeyUp(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter && clientListView.SelectedItems.Count == 1)
-            {
-                var selectedItem = clientListView.SelectedItems[0];
-                selectedItem.SubItems[3].Text = toolStripTextBoxClientName.Text;
-                toolStripTextBoxClientName.Text = string.Empty;
-                UpdateUiState();
-            }
-        }
 
         private void TryDisableArpProtection()
         {
@@ -711,7 +792,6 @@ namespace dznetcut.GUI
 
         private void UpdateUiState()
         {
-            var hasSingleSelection = clientListView.SelectedItems.Count == 1;
             var hasTrafficCut = _arpTrafficCutter.IsTrafficCutActive;
             var hasScan = _networkScanner.IsScanning;
             var hasSpoofableSelection = clientListView.SelectedItems
@@ -722,23 +802,6 @@ namespace dznetcut.GUI
             reconnectToolStripMenuItem.Enabled = hasTrafficCut;
             stopNetworkScanToolStripMenuItem.Enabled = hasScan;
             toolStripMenuItemRefreshClients.Enabled = !hasScan;
-            ClientNametoolStripMenuItem.Enabled = hasSingleSelection && !hasTrafficCut;
-            toolStripTextBoxClientName.Enabled = hasSingleSelection && !hasTrafficCut;
-
-            if (hasSingleSelection)
-            {
-                var selectedKey = clientListView.SelectedItems[0].SubItems[0].Text;
-                if (!string.Equals(_nameEditorSelectionKey, selectedKey, StringComparison.Ordinal))
-                {
-                    _nameEditorSelectionKey = selectedKey;
-                    toolStripTextBoxClientName.Text = clientListView.SelectedItems[0].SubItems[3].Text;
-                }
-            }
-            else
-            {
-                _nameEditorSelectionKey = null;
-                toolStripTextBoxClientName.Text = string.Empty;
-            }
         }
     }
 }
