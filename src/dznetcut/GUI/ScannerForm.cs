@@ -17,6 +17,9 @@ namespace dznetcut.GUI
 {
     public partial class ScannerForm : Form
     {
+        private const string GatewaySelectionBlockedStatus = "The gateway cannot be a traffic-cut target.";
+        private const string SourceSelectionBlockedStatus = "The source cannot be a traffic-cut target.";
+
         private readonly Dictionary<string, AdapterSelectionOptionModel> _adapterOptionsByDisplayText = new Dictionary<string, AdapterSelectionOptionModel>(StringComparer.Ordinal);
         private readonly TrafficCutter _arpTrafficCutter;
         private readonly Dictionary<string, ListViewItem> _clientItemsByIp = new Dictionary<string, ListViewItem>(StringComparer.Ordinal);
@@ -216,9 +219,18 @@ namespace dznetcut.GUI
             e.Item.Selected = false;
             var ip = IPAddress.Parse(e.Item.SubItems[0].Text);
             toolStripStatus.Text = IsGatewayClient(ip)
-                ? "The gateway cannot be selected as a traffic-cut target."
-                : "The source device cannot be selected as a traffic-cut target.";
+                ? GatewaySelectionBlockedStatus
+                : SourceSelectionBlockedStatus;
             UpdateUiState();
+        }
+
+        private void clientListView_MouseDown(object sender, MouseEventArgs e)
+        {
+            var hit = clientListView.HitTest(e.Location);
+            if (hit.Item == null || !IsProtectedTarget(hit.Item))
+            {
+                ResetSelectionBlockedStatusMessage();
+            }
         }
 
         private void clientListView_Resize(object sender, EventArgs e)
@@ -802,6 +814,17 @@ namespace dznetcut.GUI
             reconnectToolStripMenuItem.Enabled = hasTrafficCut;
             stopNetworkScanToolStripMenuItem.Enabled = hasScan;
             toolStripMenuItemRefreshClients.Enabled = !hasScan;
+        }
+
+        private void ResetSelectionBlockedStatusMessage()
+        {
+            if (toolStripStatus.Text != GatewaySelectionBlockedStatus
+                && toolStripStatus.Text != SourceSelectionBlockedStatus)
+            {
+                return;
+            }
+
+            toolStripStatus.Text = "Ready";
         }
     }
 }

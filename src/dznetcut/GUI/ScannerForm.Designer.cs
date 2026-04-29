@@ -335,6 +335,7 @@ namespace dznetcut.GUI
             this.clientListView.UseCompatibleStateImageBehavior = false;
             this.clientListView.View = System.Windows.Forms.View.Details;
             this.clientListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.clientListView_ItemSelectionChanged);
+            this.clientListView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.clientListView_MouseDown);
             this.clientListView.DoubleClick += new System.EventHandler(this.clientListView_DoubleClick);
             this.clientListView.Resize += new System.EventHandler(this.clientListView_Resize);
             // 
