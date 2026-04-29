@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 
-namespace dznetcut
+namespace dznetcut.GUI
 {
     partial class ScannerForm
     {
@@ -52,6 +52,7 @@ namespace dznetcut
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripMenuItemRefreshClients = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.commandLineParametersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.aboutdznetcutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatus = new System.Windows.Forms.ToolStripStatusLabel();
@@ -227,15 +228,23 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.commandLineParametersToolStripMenuItem,
             this.aboutdznetcutToolStripMenuItem});
             this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
             this.helpToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
             this.helpToolStripMenuItem.Text = "Help";
             // 
+            // commandLineParametersToolStripMenuItem
+            // 
+            this.commandLineParametersToolStripMenuItem.Name = "commandLineParametersToolStripMenuItem";
+            this.commandLineParametersToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.commandLineParametersToolStripMenuItem.Text = "Command line parameters";
+            this.commandLineParametersToolStripMenuItem.Click += new System.EventHandler(this.commandLineParametersToolStripMenuItem_Click);
+            // 
             // aboutdznetcutToolStripMenuItem
             // 
             this.aboutdznetcutToolStripMenuItem.Name = "aboutdznetcutToolStripMenuItem";
-            this.aboutdznetcutToolStripMenuItem.Size = new System.Drawing.Size(143, 22);
+            this.aboutdznetcutToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
             this.aboutdznetcutToolStripMenuItem.Text = "About dznetcut";
             this.aboutdznetcutToolStripMenuItem.Click += new System.EventHandler(this.aboutdznetcutToolStripMenuItem_Click);
             // 
@@ -414,6 +423,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem commandLineParametersToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem aboutdznetcutToolStripMenuItem;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatus;
