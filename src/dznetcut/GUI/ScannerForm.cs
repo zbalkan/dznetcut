@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -437,6 +438,7 @@ namespace dznetcut.GUI
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             PopulateAdapterDropDown(ApplicationSettings.GetSavedPreferredInterfaceFriendlyName());
             var showLog = ApplicationSettings.GetSavedShowLog() ?? false;
             showLogToolStripMenuItem.Checked = showLog;
@@ -444,15 +446,6 @@ namespace dznetcut.GUI
             AdjustClientListViewLayout();
             toolStripStatus.Text = "Select an interface.";
             UpdateUiState();
-        }
-
-        private void Form1_Resize(object sender, EventArgs e)
-        {
-            if (WindowState == FormWindowState.Minimized)
-            {
-                notifyIcon1.Visible = true;
-                Hide();
-            }
         }
 
         private bool IsGatewayClient(IPAddress ipAddress) =>
@@ -472,13 +465,6 @@ namespace dznetcut.GUI
                 richTextBoxLog.AppendText($"{DateTimeOffset.Now:O} : {message}\n");
                 richTextBoxLog.ScrollToCaret();
             });
-        }
-
-        private void notifyIcon1_OnMouseClick(object sender, EventArgs e)
-        {
-            notifyIcon1.Visible = false;
-            Show();
-            WindowState = FormWindowState.Normal;
         }
 
         private void PopulateAdapterDropDown(string? preferredSelection)

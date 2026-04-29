@@ -33,7 +33,6 @@ namespace dznetcut.GUI
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ScannerForm));
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemSaveSettings = new System.Windows.Forms.ToolStripMenuItem();
@@ -67,7 +66,6 @@ namespace dznetcut.GUI
             this.columnHeaderMAC = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeaderCutoffStatus = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeaderClientname = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.richTextBoxLog = new System.Windows.Forms.RichTextBox();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             this.stopNetworkScanToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -358,13 +356,6 @@ namespace dznetcut.GUI
             // 
             this.columnHeaderClientname.Text = "Client Name";
             this.columnHeaderClientname.Width = 151;
-            //
-            // notifyIcon1
-            // 
-            this.notifyIcon1.Text = "dznetcut";
-            this.notifyIcon1.Visible = true;
-            this.notifyIcon1.MouseClick += new System.Windows.Forms.MouseEventHandler(this.notifyIcon1_OnMouseClick);
-            // 
             // richTextBoxLog
             // 
             this.richTextBoxLog.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
@@ -395,13 +386,11 @@ namespace dznetcut.GUI
             this.Controls.Add(this.clientListView);
             this.Controls.Add(this.statusStrip1);
             this.Controls.Add(this.menuStrip1);
-            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "ScannerForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "dznetcut";
             this.Load += new System.EventHandler(this.Form1_Load);
-            this.Resize += new System.EventHandler(this.Form1_Resize);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.statusStrip1.ResumeLayout(false);
@@ -429,7 +418,6 @@ namespace dznetcut.GUI
         private System.Windows.Forms.ToolStripMenuItem cutoffToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem reconnectToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-        private System.Windows.Forms.NotifyIcon notifyIcon1;
         private System.Windows.Forms.ColumnHeader columnHeaderClientname;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSaveSettings;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemChooseInterface;
