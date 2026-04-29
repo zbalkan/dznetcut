@@ -587,6 +587,14 @@ namespace dznetcut.GUI
             }
         }
 
+        private void toolStripMenuItemStealthMode_CheckStateChanged(object sender, EventArgs e)
+        {
+            _networkScanner.SetStealthMode(toolStripMenuItemStealthMode.Checked);
+            toolStripStatus.Text = toolStripMenuItemStealthMode.Checked
+                ? "Stealth mode enabled."
+                : "Stealth mode disabled.";
+        }
+
         private void toolStripMenuItemRefreshClients_Click(object sender, EventArgs e) => StartNetworkScan();
 
         private void toolStripMenuItemSaveSettings_Click(object sender, EventArgs e)

@@ -41,6 +41,7 @@ namespace dznetcut.Logic
         private PacketArrivalEventHandler? _backgroundHandler;
         private CancellationTokenSource? _scanCts;
         private Task? _scanTask;
+        private volatile bool _stealthModeEnabled;
         private volatile bool _stopRequestedByUser;
 
         public NetworkScanner(Action<string>? log = null, ScanPolicyConfig? policy = null)
@@ -58,6 +59,14 @@ namespace dznetcut.Logic
                     return _scanCts != null && !_scanCts.IsCancellationRequested;
                 }
             }
+        }
+
+        public void SetStealthMode(bool enabled)
+        {
+            _stealthModeEnabled = enabled;
+            _log(enabled
+                ? "Stealth mode enabled: discovery probes will use additional randomized pacing."
+                : "Stealth mode disabled: discovery probes use default pacing.");
         }
 
         public void StartScan(
@@ -307,7 +316,7 @@ namespace dznetcut.Logic
                 if (!sourceAddress.Equals(gatewayIp))
                 {
                     SendArpRequest(networkAdapter, gatewayIp);
-                    await Task.Delay(minInterPacketDelay + random.Next(_policy.ArpMinJitterMs, _policy.ArpMaxJitterMs + 1), cancellationToken).ConfigureAwait(false);
+                    await DelayWithOptionalStealthJitter(minInterPacketDelay + random.Next(_policy.ArpMinJitterMs, _policy.ArpMaxJitterMs + 1), random, cancellationToken).ConfigureAwait(false);
                 }
 
                 foreach (var targetIpAddress in subnet.EnumerateHosts())
@@ -323,11 +332,22 @@ namespace dznetcut.Logic
                     }
 
                     SendArpRequest(networkAdapter, targetIpAddress);
-                    await Task.Delay(minInterPacketDelay + random.Next(_policy.ArpMinJitterMs, _policy.ArpMaxJitterMs + 1), cancellationToken).ConfigureAwait(false);
+                    await DelayWithOptionalStealthJitter(minInterPacketDelay + random.Next(_policy.ArpMinJitterMs, _policy.ArpMaxJitterMs + 1), random, cancellationToken).ConfigureAwait(false);
                 }
             }
 
             await Task.Delay(TimeSpan.FromSeconds(_policy.ArpForegroundCaptureSeconds), cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task DelayWithOptionalStealthJitter(int baseDelayMs, Random random, CancellationToken cancellationToken)
+        {
+            var effectiveDelayMs = baseDelayMs;
+            if (_stealthModeEnabled)
+            {
+                effectiveDelayMs += random.Next(90, 260);
+            }
+
+            await Task.Delay(effectiveDelayMs, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task RunIcmpPhase(

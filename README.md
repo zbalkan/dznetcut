@@ -34,6 +34,7 @@ Host discovery is evidence-driven: ARP, ICMP, passive traffic hints, and local n
 - **Multi-signal host discovery** with confidence scoring and evidence aggregation.
 - **Targeted spoof loop** that sends ARP replies to both gateway and target(s).
 - **ARP protection guards** for protected identities (local host and detected gateway).
+- **Stealth scan mode (GUI)** that adds randomized pacing delays to discovery probes to reduce bursty scan signatures.
 - **Saved device labels** for recognizable MAC-to-name mapping.
 - **Unified entry point**: GUI and CLI are routed through the same executable.
 
@@ -137,11 +138,12 @@ dotnet build dznetcut.sln -c Release
 
 1. Run `dznetcut` as administrator.
 2. Select the adapter connected to the target LAN.
-3. Start scanning and wait for host confidence to stabilize.
-4. Review hosts (local host and gateway are protected identities).
-5. Select one or more non-protected targets.
-6. Start spoofing.
-7. Stop spoofing to terminate active ARP poison tasks.
+3. *(Optional)* Enable **Edit → Stealth mode** to slow discovery pacing with additional randomized jitter.
+4. Start scanning and wait for host confidence to stabilize.
+5. Review hosts (local host and gateway are protected identities).
+6. Select one or more non-protected targets.
+7. Start spoofing.
+8. Stop spoofing to terminate active ARP poison tasks.
 
 If only protected hosts are selected, cutoff is rejected and no spoofing task starts.
 

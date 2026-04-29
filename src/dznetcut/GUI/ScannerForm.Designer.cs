@@ -43,6 +43,7 @@ namespace dznetcut.GUI
             this.toolStripComboBoxDevicelist = new System.Windows.Forms.ToolStripComboBox();
             this.toolStripMenuItemSelectAllAdapters = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemArpProtection = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItemStealthMode = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.ClientNametoolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripTextBoxClientName = new System.Windows.Forms.ToolStripTextBox();
@@ -120,6 +121,7 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.toolStripMenuItemChooseInterface,
             this.toolStripMenuItemSelectAllAdapters,
             this.toolStripMenuItemArpProtection,
+            this.toolStripMenuItemStealthMode,
             this.toolStripSeparator3,
             this.ClientNametoolStripMenuItem,
             this.toolStripSeparator1,
@@ -166,6 +168,15 @@ this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.toolStripMenuItemArpProtection.Text = "Enable ARP Protection";
             this.toolStripMenuItemArpProtection.ToolTipText = "Pin the gateway ARP entry while spoofing is active";
             this.toolStripMenuItemArpProtection.CheckStateChanged += new System.EventHandler(this.toolStripMenuItemArpProtection_CheckStateChanged);
+            // 
+            // toolStripMenuItemStealthMode
+            // 
+            this.toolStripMenuItemStealthMode.CheckOnClick = true;
+            this.toolStripMenuItemStealthMode.Name = "toolStripMenuItemStealthMode";
+            this.toolStripMenuItemStealthMode.Size = new System.Drawing.Size(193, 22);
+            this.toolStripMenuItemStealthMode.Text = "Stealth mode";
+            this.toolStripMenuItemStealthMode.ToolTipText = "Use slower randomized discovery pacing.";
+            this.toolStripMenuItemStealthMode.CheckStateChanged += new System.EventHandler(this.toolStripMenuItemStealthMode_CheckStateChanged);
             // 
             // toolStripSeparator3
             // 
@@ -444,6 +455,7 @@ private System.Windows.Forms.ColumnHeader columnHeaderIP;
         private System.Windows.Forms.ToolStripComboBox toolStripComboBoxDevicelist;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSelectAllAdapters;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemArpProtection;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemStealthMode;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemRefreshClients;
