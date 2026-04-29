@@ -388,23 +388,22 @@ namespace dznetcut.GUI
                 ? toolStripComboBoxDevicelist.Text
                 : preferredSelection;
 
-            var captureReady = LibPcapDeviceExtensions.TryGetWinPcapDevices(out var winPcapDevices, out var captureError);
+            var includeVirtualAdapters = toolStripMenuItemSelectAllAdapters.Checked;
+            var captureReady = AdapterCatalogService.TryLoadCatalog(includeVirtualAdapters, out var catalog, out var captureError);
             if (!captureReady && !string.IsNullOrWhiteSpace(captureError))
             {
                 Log(captureError!);
             }
 
-            var options = AdapterInventoryService.BuildAdapterOptions(winPcapDevices);
-            var includeVirtualAdapters = toolStripMenuItemSelectAllAdapters.Checked;
-            var visibleOptions = AdapterSelectionService.FilterOptions(options, includeVirtualAdapters);
+            var visibleOptions = catalog.VisibleOptions;
 
             _adapterOptionsByDisplayText.Clear();
             _pcapDevicesById.Clear();
             _displayTextByDeviceId.Clear();
             toolStripComboBoxDevicelist.Items.Clear();
-            foreach (var device in winPcapDevices)
+            foreach (var entry in catalog.DevicesById)
             {
-                _pcapDevicesById[device.Name] = device;
+                _pcapDevicesById[entry.Key] = entry.Value;
             }
 
             foreach (var option in visibleOptions)

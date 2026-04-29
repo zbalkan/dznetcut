@@ -9,13 +9,10 @@ namespace dznetcut.Logic
 {
     public static class LibPcapDeviceExtensions
     {
-        public static IReadOnlyList<LibPcapLiveDevice> GetWinPcapDevices()
-        {
-            _ = TryGetWinPcapDevices(out var devices, out _);
-            return devices;
-        }
+        public static IPAddress ReadCurrentIpV4Address(this LibPcapLiveDevice device) =>
+            ReadCurrentNetworkInfo(device).ipAddress;
 
-        public static bool TryGetWinPcapDevices(out IReadOnlyList<LibPcapLiveDevice> devices, out string? errorMessage)
+        public static bool TryGetCaptureDevices(out IReadOnlyList<LibPcapLiveDevice> devices, out string? errorMessage)
         {
             try
             {
@@ -48,15 +45,12 @@ namespace dznetcut.Logic
                 return false;
             }
         }
-
-        public static IPAddress ReadCurrentIpV4Address(this LibPcapLiveDevice device) =>
-            ReadCurrentNetworkInfo(device).ipAddress;
-
         internal static IPV4Subnet ReadCurrentSubnet(this LibPcapLiveDevice device)
         {
             var (ipAddress, subnetMask) = ReadCurrentNetworkInfo(device);
             return new IPV4Subnet(ipAddress, subnetMask);
         }
+
         private static (IPAddress ipAddress, IPAddress subnetMask) ReadCurrentNetworkInfo(LibPcapLiveDevice device)
         {
             if (device == null)

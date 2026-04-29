@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
-using System.Net.NetworkInformation;
 using System.Text.Json;
-using System.Threading;
 using dznetcut.Logic;
 using SharpPcap.LibPcap;
 
@@ -14,7 +11,6 @@ namespace dznetcut.CLI
     internal sealed class CliCommandRouter
     {
         private readonly Action<string> _writeLine;
-
         public CliCommandRouter(Action<string> writeLine)
         {
             _writeLine = writeLine;
@@ -67,9 +63,10 @@ namespace dznetcut.CLI
 
         private int Scan(CliArguments arguments)
         {
-            var adapter = ResolveAdapter(arguments);
-            if (adapter == null)
+            arguments.TryGetOption("adapter", out var adapterValue);
+            if (!AdapterCatalogService.TryResolveAdapter(adapterValue, out var adapter, out var error))
             {
+                _writeLine(error!);
                 return 2;
             }
 
@@ -83,22 +80,9 @@ namespace dznetcut.CLI
             {
                 return 2;
             }
-            var scanner = new NetworkScanner(_writeLine);
-            var hosts = new ConcurrentDictionary<string, ClientDiscoveredEventArgs>(StringComparer.Ordinal);
+            var hosts = AdapterCatalogService.Scan(adapter!, gatewayIp, durationSeconds);
 
-            scanner.StartScan(
-                adapter,
-                gatewayIp,
-                new Progress<ClientDiscoveredEventArgs>(host => hosts[host.IpAddress.ToString()] = host),
-                new Progress<string>(_ => { }),
-                new Progress<int>(_ => { }));
-
-            if (!scanner.WaitForStop(TimeSpan.FromSeconds(durationSeconds + 5)))
-            {
-                scanner.StopScan();
-            }
-
-            foreach (var host in hosts.Values.ToArray().OrderBy(h => h.IpAddress.ToString(), StringComparer.Ordinal))
+            foreach (var host in hosts)
             {
                 _writeLine($"{host.IpAddress} | {host.MacAddress.ToString("-")} | confidence={host.ConfidenceScore} | gateway={host.IsGateway}");
             }
@@ -108,9 +92,10 @@ namespace dznetcut.CLI
 
         private int Cut(CliArguments arguments)
         {
-            var adapter = ResolveAdapter(arguments);
-            if (adapter == null)
+            arguments.TryGetOption("adapter", out var adapterValue);
+            if (!AdapterCatalogService.TryResolveAdapter(adapterValue, out var adapter, out var error))
             {
+                _writeLine(error!);
                 return 2;
             }
 
@@ -140,126 +125,38 @@ namespace dznetcut.CLI
                 return 2;
             }
             var gatewayMac = gatewayMacText!.Parse();
-            var targets = ParseTargets(targetText!);
+            var targets = AdapterCatalogService.ParseTargets(targetText!);
 
-            var spoofer = new Spoofer(_writeLine);
-            var selectedOption = AdapterInventoryService.BuildAdapterOptions(new[] { adapter })
-                .FirstOrDefault(option => string.Equals(option.DeviceId, adapter.Name, StringComparison.Ordinal));
-
-            try
-            {
-                if (arpProtectionEnabled)
-                {
-                    if (selectedOption?.InterfaceId == null)
-                    {
-                        throw new InvalidOperationException("Cannot map selected adapter to a Windows interface for ARP protection.");
-                    }
-
-                    ArpProtectionService.Enable(selectedOption.InterfaceId, gatewayIp, gatewayMac);
-                }
-
-                spoofer.Start(targets, gatewayIp, gatewayMac, adapter);
-                Thread.Sleep(TimeSpan.FromSeconds(durationSeconds));
-                return 0;
-            }
-            finally
-            {
-                spoofer.StopAll();
-                if (arpProtectionEnabled && selectedOption?.InterfaceId != null)
-                {
-                    try
-                    {
-                        ArpProtectionService.Disable(selectedOption.InterfaceId, gatewayIp, gatewayMac);
-                    }
-                    catch (Exception ex)
-                    {
-                        _writeLine($"Unable to disable ARP protection: {ex.Message}");
-                    }
-                }
-            }
-        }
-
-        private static IReadOnlyDictionary<IPAddress, PhysicalAddress> ParseTargets(string input)
-        {
-            var map = new Dictionary<IPAddress, PhysicalAddress>();
-            var entries = input.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var entry in entries)
-            {
-                var parts = entry.Split('@');
-                if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var ip))
-                {
-                    throw new ArgumentException($"Invalid target format '{entry}'. Use ipv4@mac.");
-                }
-
-                map[ip] = parts[1].Parse();
-            }
-
-            return map;
+            AdapterCatalogService.Cut(adapter!, gatewayIp, gatewayMac, targets, durationSeconds, arpProtectionEnabled, _writeLine);
+            return 0;
         }
 
         private int ListAdapters(CliArguments arguments)
         {
-            var ready = LibPcapDeviceExtensions.TryGetWinPcapDevices(out var devices, out var error);
-            if (!ready)
+            if (!AdapterCatalogService.TryListAdapters(out var adapters, out var error))
             {
                 _writeLine(error ?? "No capture adapters were found.");
                 return 3;
             }
 
-            var optionsByDeviceId = AdapterInventoryService.BuildAdapterOptions(devices.ToArray())
-                .ToDictionary(option => option.DeviceId, StringComparer.Ordinal);
-            var rows = devices
-                .Select(device =>
-                {
-                    _ = optionsByDeviceId.TryGetValue(device.Name, out var option);
-                    var label = option?.DisplayText ?? (device.Interface?.FriendlyName ?? device.Name);
-                    var gateway = option?.GatewayIpAddress?.ToString() ?? "n/a";
-                    return $"{label} | id={device.Name} | gateway={gateway} | physical={option?.IsPhysical}";
-                })
-                .ToList();
-
             if (arguments.Options.ContainsKey("json"))
             {
-                _writeLine(JsonSerializer.Serialize(new { adapters = rows }));
+                _writeLine(JsonSerializer.Serialize(new { adapters = adapters.Select(FormatAdapterRow).ToArray() }));
                 return 0;
             }
 
-            foreach (var row in rows)
+            foreach (var adapter in adapters)
             {
-                _writeLine(row);
+                _writeLine(FormatAdapterRow(adapter));
             }
 
             return 0;
         }
 
-        private LibPcapLiveDevice? ResolveAdapter(CliArguments arguments)
+        private static string FormatAdapterRow(AdapterListItemModel adapter)
         {
-            var ready = LibPcapDeviceExtensions.TryGetWinPcapDevices(out var devices, out var error);
-            if (!ready)
-            {
-                _writeLine(error ?? "No adapters available.");
-                return null;
-            }
-
-            if (!arguments.TryGetOption("adapter", out var adapterValue) || string.IsNullOrWhiteSpace(adapterValue))
-            {
-                _writeLine("Missing required option: --adapter <id|friendly-name>");
-                return null;
-            }
-
-            var options = AdapterInventoryService.BuildAdapterOptions(devices.ToArray());
-            var selectedOption = options.FirstOrDefault(o => string.Equals(o.DeviceId, adapterValue, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(o.DisplayText, adapterValue, StringComparison.OrdinalIgnoreCase));
-            var resolved = selectedOption == null
-                ? devices.FirstOrDefault(d => string.Equals(d.Interface?.FriendlyName, adapterValue, StringComparison.OrdinalIgnoreCase))
-                : devices.FirstOrDefault(d => string.Equals(d.Name, selectedOption.DeviceId, StringComparison.OrdinalIgnoreCase));
-
-            if (resolved == null)
-            {
-                _writeLine($"Unable to resolve adapter '{adapterValue}'. Run list-adapters to inspect available IDs.");
-            }
-
-            return resolved;
+            var gateway = adapter.GatewayIpAddress?.ToString() ?? "n/a";
+            return $"{adapter.Label} | id={adapter.DeviceId} | gateway={gateway} | physical={adapter.IsPhysical}";
         }
 
         private static bool TryGetIpOption(CliArguments arguments, string key, out IPAddress ip)
